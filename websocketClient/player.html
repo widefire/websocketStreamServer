@@ -1,0 +1,143 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+
+<head>
+    <title>websocket player</title>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+</head>
+
+<body>
+    <video id="video" controls>
+
+     </video>
+    <br>
+    <textarea name="log" id="log" cols="30" rows="3" readonly="readonly"></textarea>
+    <!--<div id="log"></div>-->
+    <script type="text/javascript">
+        var video = document.getElementById("video");
+        var addr = "ws://127.0.0.1:8080/live";
+        var conn;
+        video.addEventListener("play", onPlay);
+
+        function onPlay() {
+            console.log("on play111")
+            if (window["WebSocket"]) {
+                console.log("begin websocket")
+                connectWebServer();
+            } else {
+                console.error("not support websocket")
+            }
+        }
+
+        function connectWebServer() {
+
+            var WS_ctrl_connect = 0;
+            var WS_ctrl_result = 1;
+            var WS_ctrl_play = 2;
+            var WS_ctrl_pause = 3;
+            var WS_ctrl_resume = 4;
+            var ws_ctrl_close = 5;
+            var WS_ctrl_publish = 6;
+            var WS_ctrl_onMetaData = 7;
+            var WS_ctrl_unPublish = 8;
+            var WS_ctrl_stopPlay = 9;
+            var WS_ctrl_play2 = 10;
+            var WS_ctrl_streamBegin = 11;
+            var WS_ctrl_streamEnd = 12;
+
+            conn = new WebSocket(addr);
+            conn.onclose = function(evt) {
+                console.log(evt);
+            }
+            conn.onmessage = function(evt) {
+                if (evt.data instanceof Blob) {
+                    var blob = evt.data;
+                    var newblob = blob.slice(0, 1);
+                    var reader = new FileReader();
+                    reader.readAsArrayBuffer(blob);
+                    reader.onload = function(evt) {
+                        console.log(reader.result);
+                        var arr = new Uint8Array(reader.result);
+                        handleMessage(arr);
+                    }
+                }
+
+            }
+            conn.onopen = function(evt) {
+                console.log(evt);
+                sendConnect();
+                sendPlayMsg();
+            }
+
+            function sendConnect() {
+                var connect = {
+                    id: 0,
+                    app: 'live',
+                    tcUrl: 'ws://127.0.0.1:8080/live',
+                    audioCodecs: 0,
+                    videoCodecs: 0
+                };
+                var strConnect = JSON.stringify(connect);
+
+                var arr = new Uint8Array(2 + strConnect.length);
+                arr[0] = 18;
+                arr[1] = WS_ctrl_connect;
+                for (var i = 0, p = 2; i < strConnect.length; i++, p++) {
+                    arr.set([strConnect.charCodeAt(i)], p);
+                }
+
+                conn.send(arr.buffer);
+            }
+
+            function sendPlayMsg() {
+                var stplay = {
+                    id: 0,
+                    streamName: "test"
+                }
+                var strPlay = JSON.stringify(stplay);
+                var arr = new Uint8Array(2 + strPlay.length);
+                arr[0] = 18;
+                arr[1] = WS_ctrl_play;
+                for (var i = 0, p = 2; i < strPlay.length; i++, p++) {
+                    arr.set([strPlay.charCodeAt(i)], p);
+                }
+                console.log(strPlay);
+                console.log(arr.buffer);
+                conn.send(arr.buffer);
+            }
+
+            function handleMessage(buf) {
+
+                console.log(buf);
+                switch (buf[0]) {
+                    case 8:
+                        console.log("audio");
+                        break;
+                    case 9:
+                        console.log("video");
+                        break;
+                    case 18:
+                        console.log("ctrl");
+                        handleCtrl(buf)
+                        break;
+                }
+            }
+
+            function handleCtrl(buf) {
+                switch (buf[1]) {
+                    case WS_ctrl_result:
+                        var str = String.fromCharCode.apply(null, buf.slice(2, buf.length));
+                        //console.log(str);
+                        var obj;
+                        obj = JSON.parse(str);
+                        console.log(obj);
+                        if (obj.status != 200) {
+                            console.log("ctrl error");
+                        }
+                        break;
+                    default:
+                        console.log(buf[1]);
+                }
+            }
+        }
+    </script>
+</body>
