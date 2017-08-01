@@ -17,6 +17,7 @@ import (
 	"wssAPI"
 	"HTTPMUX"
 	"DASH"
+	"RTSPService"
 )
 
 type busConfig struct {
@@ -27,6 +28,7 @@ type busConfig struct {
 	StreamManagerConfigName string `json:"Streamer"`
 	HLSConfigName           string `json:"HLS"`
 	DASHConfigName 			string `json:"DASH,omitempty"`
+	RTSPConfigName string `json:"RTSP,omitempty"`
 }
 
 type SvrBus struct {
@@ -138,20 +140,20 @@ func (this *SvrBus) loadConfig() (err error) {
 			this.mutexServices.Unlock()
 		}
 	}
-//
-//	if len(cfg.RTSPConfigName) > 0 {
-//		rtspSvr := &RTSPService.RTSPService{}
-//		msg := &wssAPI.Msg{}
-//		msg.Param1 = cfg.RTSPConfigName
-//		err = rtspSvr.Init(msg)
-//		if err != nil {
-//			logger.LOGE(err.Error())
-//		} else {
-//			this.mutexServices.Lock()
-//			this.services[rtspSvr.GetType()] = rtspSvr
-//			this.mutexServices.Unlock()
-//		}
-//	}
+
+	if len(cfg.RTSPConfigName) > 0 {
+		rtspSvr := &RTSPService.RTSPService{}
+		msg := &wssAPI.Msg{}
+		msg.Param1 = cfg.RTSPConfigName
+		err = rtspSvr.Init(msg)
+		if err != nil {
+			logger.LOGE(err.Error())
+		} else {
+			this.mutexServices.Lock()
+			this.services[rtspSvr.GetType()] = rtspSvr
+			this.mutexServices.Unlock()
+		}
+	}
 
 	if len(cfg.HLSConfigName) > 0 {
 		hls := &HLSService.HLSService{}
