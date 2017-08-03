@@ -12,6 +12,7 @@ type EvePullRTMPStream struct {
 	SourceName string //用来创建和删除源，源名称和app+streamName 并不一样
 	Protocol   string //RTMP,RTMPS,RTMPS and so on
 	App        string
+	Instance   string
 	Address    string
 	Port       int
 	StreamName string
@@ -26,10 +27,11 @@ func (this *EvePullRTMPStream) Type() string {
 	return PullRTMPStream
 }
 
-func (this *EvePullRTMPStream) Init(protocol, app, addr, streamName, sourceName string, port int) {
+func (this *EvePullRTMPStream) Init(protocol, app, instance,addr, streamName, sourceName string, port int) {
 	this.Protocol = protocol
 	this.App = app
 	this.Address = addr
+	this.Instance=instance
 	this.Port = port
 	this.StreamName = streamName
 	this.SourceName = sourceName
@@ -40,6 +42,7 @@ func (this *EvePullRTMPStream) Copy() (out *EvePullRTMPStream) {
 	out = &EvePullRTMPStream{}
 	out.Protocol = this.Protocol
 	out.App = this.App
+	out.Instance=this.Instance
 	out.Address = this.Address
 	out.Port = this.Port
 	out.StreamName = this.StreamName

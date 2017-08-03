@@ -281,6 +281,14 @@ func (this *StreamerService) pullStreamExec(app, streamName string, addr *eLiveL
 	case "rtmp":
 		task := &eRTMPEvent.EvePullRTMPStream{}
 		task.App = addr.App
+		if strings.Contains(app,"/"){
+			tmp:=strings.Split(app,"/")
+			task.Instance=strings.TrimPrefix(app,tmp[0])
+			task.Instance=strings.TrimPrefix(task.Instance,"/")
+			task.App+="/"+task.Instance
+		}else{
+			task.Instance=addr.Instance
+		}
 		task.Address = addr.Addr
 		task.Port = addr.Port
 		task.Protocol = addr.Protocol

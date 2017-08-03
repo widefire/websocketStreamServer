@@ -39,8 +39,8 @@ func ParseSPS(sps []byte) (width, height, fps int) {
 		if chroma_format_idc == 3 {
 			bit.ReadBit()
 		}
-		bit.ReadExponentialGolombCode()
-		bit.ReadExponentialGolombCode()
+		bit.ReadExponentialGolombCode()//bit_depth_luma_minus
+		bit.ReadExponentialGolombCode()//bit_depth_chroma_minus8
 		bit.ReadBit()
 		seq_scaling_matrix_present_flag := bit.ReadBit()
 		if seq_scaling_matrix_present_flag != 0 {

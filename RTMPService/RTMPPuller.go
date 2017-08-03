@@ -62,7 +62,10 @@ func (this *RTMPPuller) initRTMPLink() {
 		this.pullParams.Address + ":" +
 		strconv.Itoa(this.pullParams.Port) + "/" +
 		this.pullParams.App
-	logger.LOGT(this.rtmp.Link.TcUrl)
+	//if len(this.pullParams.Instance)>0{
+	//	this.rtmp.Link.TcUrl+="/"+this.pullParams.Instance
+	//}
+	logger.LOGD(this.rtmp.Link.TcUrl)
 }
 
 func (this *RTMPPuller) Start(msg *wssAPI.Msg) (err error) {

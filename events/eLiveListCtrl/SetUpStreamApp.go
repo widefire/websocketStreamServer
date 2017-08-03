@@ -8,6 +8,7 @@ type EveSetUpStreamApp struct {
 	Id       string `json:"Id"`
 	Add      bool
 	App      string `json:"app"`
+	Instance string `json:"instance,omitempty"`
 	Protocol string `json:"protocol"`
 	Port     int    `json:"port"`
 	Addr     string `json:"addr"`
@@ -22,10 +23,11 @@ func (this *EveSetUpStreamApp) Type() string {
 	return SetUpStreamApp
 }
 
-func NewSetUpStreamApp(add bool, app, protocol, addr, name string, port, weight int) (out *EveSetUpStreamApp) {
+func NewSetUpStreamApp(add bool, app,instance, protocol, addr, name string, port, weight int) (out *EveSetUpStreamApp) {
 	out = &EveSetUpStreamApp{}
 	out.Add = add
 	out.App = app
+	out.Instance=instance
 	out.Protocol = protocol
 	out.Addr = addr
 	out.Port = port
@@ -39,6 +41,7 @@ func (this *EveSetUpStreamApp) Copy() (out *EveSetUpStreamApp) {
 	out.Id = this.Id
 	out.Add = this.Add
 	out.App = this.App
+	out.Instance=this.Instance
 	out.Protocol = this.Protocol
 	out.Addr = this.Addr
 	out.Port = this.Port
