@@ -12,9 +12,7 @@ import (
 	"sync"
 	"time"
 )
-//http://addr/DASH/streamName/mpd/id.mpd
-//http://addr/DASH/streamName/video/init.mp4 or number.m4s
-//http://addr/DASH/streamName/audio/init.mp4 or number.m4s
+//http://addr/DASH/streamName/req
 const (
 	MPD_PREFIX="mpd"
 	Video_PREFIX="video"
@@ -62,6 +60,7 @@ func (this *DASHService)ServeHTTP(w http.ResponseWriter,req *http.Request)  {
 		logger.LOGE(err.Error())
 		return
 	}
+
 	this.muxSource.RLock()
 	source,exist:=this.sources[streamName]
 	this.muxSource.RUnlock()
@@ -143,18 +142,22 @@ func (this *DASHService)parseURL(url string)(streamName,reqType,param string,err
 	url=strings.TrimPrefix(url,serviceConfig.Route)
 	url=strings.TrimSuffix(url,"/")
 	subs:=strings.Split(url,"/")
-	if len(subs)<3{
+	if len(subs)<2{
 		err=errors.New("invalid request :"+url)
 		return
 	}
+	streamName=strings.TrimSuffix(url,subs[len(subs)-1])
+	streamName=strings.TrimSuffix(streamName,"/")
 	param=subs[len(subs)-1]
-	url=strings.TrimSuffix(url,param)
-	url=strings.TrimSuffix(url,"/")
-	reqType=subs[len(subs)-2]
-	url=strings.TrimSuffix(url,reqType)
-	streamName=strings.TrimSuffix(url,"/")
-
-	logger.LOGD(streamName,reqType,param)
+	if strings.HasPrefix(param,MPD_PREFIX){
+		reqType=MPD_PREFIX
+	}else if strings.HasPrefix(param,Video_PREFIX){
+		reqType=Video_PREFIX
+	}else if strings.HasPrefix(param,Audio_PREFIX){
+		reqType=Audio_PREFIX
+	}else{
+		err=errors.New("invalid req ")
+	}
 	return 
 }
 

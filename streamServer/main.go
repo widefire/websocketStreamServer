@@ -18,6 +18,7 @@ func initLogger() {
 
 func startServers() {
 	svrBus.Start()
+
 	ch := make(chan int)
 	<-ch
 }

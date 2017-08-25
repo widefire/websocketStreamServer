@@ -7,7 +7,9 @@ import (
 	"events/eStreamerEvent"
 	"logger"
 	"mediaTypes/flv"
-	"time"
+	"github.com/panda-media/muxer-fmp4/dashSlicer"
+	"github.com/panda-media/muxer-fmp4/codec/H264"
+
 )
 
 type DASHSource struct {
@@ -18,9 +20,7 @@ type DASHSource struct {
 	sinkAdded bool
 	inSvr bool
 
-	audioHeader *flv.FlvTag
-	videoHeader *flv.FlvTag
-	mpd *mpdCreater
+	slicer *dashSlicer.DASHSlicer
 }
 
 func (this *DASHSource)serveHTTP(reqType,param string,w http.ResponseWriter,req *http.Request)  {
@@ -33,23 +33,14 @@ func (this *DASHSource)serveHTTP(reqType,param string,w http.ResponseWriter,req 
 }
 
 func (this *DASHSource)serveMPD(param string,w http.ResponseWriter,req *http.Request)  {
-	if nil==this.videoHeader&&nil==this.audioHeader {
-		time.Sleep(time.Second*5)
-	}
-	if nil==this.videoHeader&&nil==this.audioHeader {
-		w.WriteHeader(400)
-		logger.LOGE("no media data")
+
+	mpd,err:= this.slicer.GetLastedMPD()
+	if err!=nil{
+		logger.LOGE(err.Error())
 		return
 	}
+	w.Write(mpd)
 
-	if this.mpd==nil{
-		this.mpd=&mpdCreater{}
-		this.mpd.init(this.videoHeader,this.audioHeader)
-	}
-
-	bufXML:=this.mpd.GetXML(this.clientId,0)
-	w.Header().Set("Content-Type",http.DetectContentType(bufXML))
-	w.Write(bufXML)
 }
 
 func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
@@ -71,6 +62,8 @@ func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
 		Sinker:     this}
 
 	wssAPI.HandleTask(taskAddSink)
+
+	this.slicer=dashSlicer.NEWSlicer(true,1000,10000,5)
 	return
 }
 
@@ -129,11 +122,49 @@ func (this *DASHSource) ProcessMessage(msg *wssAPI.Msg) (err error) {
 }
 
 func (this *DASHSource)addFlvTag(tag *flv.FlvTag)  {
-	if this.videoHeader==nil&&tag.TagType==flv.FLV_TAG_Video {
-		this.videoHeader=tag
-	}
-
-	if this.audioHeader==nil&&tag.TagType==flv.FLV_TAG_Audio{
-		this.audioHeader=tag
+	switch tag.TagType {
+	case flv.FLV_TAG_Audio:
+		this.slicer.AddAACFrame(tag.Data[2:])
+	case flv.FLV_TAG_Video:
+		if tag.Data[0]==0x17&&tag.Data[1]==0{
+			logger.LOGD("AVC")
+			avc,err:=H264.DecodeAVC(tag.Data[5:])
+			if err!=nil{
+				logger.LOGE(err.Error())
+				return
+			}
+			for e := avc.SPS.Front(); e != nil; e = e.Next() {
+				nal := make([]byte, 3+len(e.Value.([]byte)))
+				nal[0] = 0
+				nal[1] = 0
+				nal[2] = 1
+				copy(nal[3:], e.Value.([]byte))
+				this.slicer.AddH264Nals(nal)
+			}
+			for e := avc.PPS.Front(); e != nil; e = e.Next() {
+				nal := make([]byte, 3+len(e.Value.([]byte)))
+				nal[0] = 0
+				nal[1] = 0
+				nal[2] = 1
+				copy(nal[3:], e.Value.([]byte))
+				this.slicer.AddH264Nals(nal)
+			}
+		}else {
+			cur := 5
+			for cur < len(tag.Data) {
+				size := int(tag.Data[cur]) << 24
+				size |= int(tag.Data[cur+1]) << 16
+				size |= int(tag.Data[cur+2]) << 8
+				size |= int(tag.Data[cur+3]) << 0
+				cur += 4
+				nal := make([]byte, 3+size)
+				nal[0] = 0
+				nal[1] = 0
+				nal[2] = 1
+				copy(nal[3:], tag.Data[cur:cur+size])
+				this.slicer.AddH264Nals(nal)
+				cur += size
+			}
+		}
 	}
 }
