@@ -175,7 +175,7 @@ func (this *DASHService)Add(name string,src *DASHSource) (err error) {
 
 func (this *DASHService)Del(name,id string)  {
 	this.muxSource.Lock()
-	defer this.muxSource.RUnlock()
+	defer this.muxSource.Unlock()
 	src,exist:=this.sources[name]
 	if exist&&src.clientId==id{
 		delete(this.sources,name)

@@ -100,6 +100,10 @@ func (this *AMF0Encoder) EncodeNumber(num float64) (err error) {
 	return nil
 }
 
+func (this *AMF0Encoder)EncodeNU(){
+
+}
+
 func (this *AMF0Encoder) EncodeBool(boo bool) (err error) {
 	err = this.writer.WriteByte(AMF0_boolean)
 	if err != nil {
@@ -279,7 +283,7 @@ func (this *AMF0Encoder) encodeProp(prop *AMF0Property) (data []byte) {
 
 	case AMF0_date:
 		enc.AppendByte(AMF0_date)
-		enc.EncodeNumber(prop.Value.NumValue)
+		binary.Write(enc.writer, binary.BigEndian, &prop.Value.NumValue)
 		enc.EncodeInt16(prop.Value.S16Value)
 	case AMF0_long_string:
 		enc.EncodeString(prop.Value.StrValue)

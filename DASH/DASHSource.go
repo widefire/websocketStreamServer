@@ -63,7 +63,7 @@ func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
 
 	wssAPI.HandleTask(taskAddSink)
 
-	this.slicer=dashSlicer.NEWSlicer(true,1000,10000,5)
+	this.slicer=dashSlicer.NEWSlicer(true,1000,5000,5)
 	return
 }
 
