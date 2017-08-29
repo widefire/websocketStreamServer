@@ -28,7 +28,11 @@ func (this *DASHSource)serveHTTP(reqType,param string,w http.ResponseWriter,req 
 	case MPD_PREFIX:
 		this.serveMPD(param,w,req)
 	case Video_PREFIX:
+		logger.LOGD(param)
+		this.serveVideo(param,w,req)
 	case Audio_PREFIX:
+		logger.LOGD(param)
+		this.serveAudio(param,w,req)
 	}
 }
 
@@ -39,8 +43,32 @@ func (this *DASHSource)serveMPD(param string,w http.ResponseWriter,req *http.Req
 		logger.LOGE(err.Error())
 		return
 	}
+	w.Header().Set("Content-Type","application/dash+xml")
+	w.Header().Set("Access-Control-Allow-Origin","*")
 	w.Write(mpd)
 
+}
+
+func (this *DASHSource)serveVideo(param string,w http.ResponseWriter,req *http.Request){
+	data,err:=this.slicer.GetVideoData(param)
+	if err!=nil{
+		logger.LOGE(err.Error())
+		return
+	}
+	if data!=nil{
+		w.Write(data)
+	}
+}
+
+func (this *DASHSource)serveAudio(param string,w http.ResponseWriter,req *http.Request){
+	data,err:=this.slicer.GetAudioData(param)
+	if err!=nil{
+		logger.LOGE(err.Error())
+		return
+	}
+	if data!=nil{
+		w.Write(data)
+	}
 }
 
 func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
@@ -63,7 +91,7 @@ func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
 
 	wssAPI.HandleTask(taskAddSink)
 
-	this.slicer=dashSlicer.NEWSlicer(true,1000,5000,5)
+	this.slicer=dashSlicer.NEWSlicer(true,2000,10000,5)
 	return
 }
 

@@ -51,6 +51,7 @@ func (this *DASHService) Init(msg *wssAPI.Msg) (err error) {
 	strPort := ":" + strconv.Itoa(serviceConfig.Port)
 	HTTPMUX.AddRoute(strPort,serviceConfig.Route,this.ServeHTTP)
 	this.sources=make(map[string]*DASHSource)
+	service=this
 	return
 }
 
