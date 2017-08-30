@@ -10,6 +10,7 @@ import (
 	"github.com/panda-media/muxer-fmp4/dashSlicer"
 	"github.com/panda-media/muxer-fmp4/codec/H264"
 
+	"os"
 )
 
 type DASHSource struct {
@@ -21,6 +22,8 @@ type DASHSource struct {
 	inSvr bool
 
 	slicer *dashSlicer.DASHSlicer
+	appendedAACHeader bool
+	appendedKeyFrame bool
 }
 
 func (this *DASHSource)serveHTTP(reqType,param string,w http.ResponseWriter,req *http.Request)  {
@@ -57,6 +60,11 @@ func (this *DASHSource)serveVideo(param string,w http.ResponseWriter,req *http.R
 	}
 	if data!=nil{
 		w.Write(data)
+		wssAPI.CreateDirectory("dashMedia")
+		fileName:="dashMedia/"+param
+		fp,_:=os.Create(fileName)
+		defer fp.Close()
+		fp.Write(data)
 	}
 }
 
@@ -68,10 +76,18 @@ func (this *DASHSource)serveAudio(param string,w http.ResponseWriter,req *http.R
 	}
 	if data!=nil{
 		w.Write(data)
+		wssAPI.CreateDirectory("dashMedia")
+		fileName:="dashMedia/"+param
+		fp,_:=os.Create(fileName)
+		defer fp.Close()
+		fp.Write(data)
 	}
 }
 
 func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
+
+	this.slicer=dashSlicer.NEWSlicer(true,2000,10000,5)
+
 	var ok bool
 	this.streamName,ok=msg.Param1.(string)
 	if false==ok{
@@ -91,7 +107,6 @@ func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
 
 	wssAPI.HandleTask(taskAddSink)
 
-	this.slicer=dashSlicer.NEWSlicer(true,2000,10000,5)
 	return
 }
 
@@ -152,7 +167,14 @@ func (this *DASHSource) ProcessMessage(msg *wssAPI.Msg) (err error) {
 func (this *DASHSource)addFlvTag(tag *flv.FlvTag)  {
 	switch tag.TagType {
 	case flv.FLV_TAG_Audio:
-		this.slicer.AddAACFrame(tag.Data[2:])
+		if false==this.appendedAACHeader{
+			this.slicer.AddAACFrame(tag.Data[2:])
+			this.appendedAACHeader=true
+		}else{
+			if this.appendedKeyFrame{
+				this.slicer.AddAACFrame(tag.Data[2:])
+			}
+		}
 	case flv.FLV_TAG_Video:
 		if tag.Data[0]==0x17&&tag.Data[1]==0{
 			logger.LOGD("AVC")
@@ -190,6 +212,14 @@ func (this *DASHSource)addFlvTag(tag *flv.FlvTag)  {
 				nal[1] = 0
 				nal[2] = 1
 				copy(nal[3:], tag.Data[cur:cur+size])
+				if false==this.appendedKeyFrame{
+					if tag.Data[cur]&0x1f==H264.NAL_IDR_SLICE{
+						this.appendedKeyFrame=true
+					}else{
+						cur+=size
+						continue
+					}
+				}
 				this.slicer.AddH264Nals(nal)
 				cur += size
 			}
