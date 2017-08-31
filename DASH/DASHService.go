@@ -150,7 +150,7 @@ func (this *DASHService)parseURL(url string)(streamName,reqType,param string,err
 	streamName=strings.TrimSuffix(url,subs[len(subs)-1])
 	streamName=strings.TrimSuffix(streamName,"/")
 	param=subs[len(subs)-1]
-	if strings.HasPrefix(param,MPD_PREFIX){
+	if strings.HasPrefix(param,MPD_PREFIX)||strings.HasSuffix(param,MPD_PREFIX){
 		reqType=MPD_PREFIX
 	}else if strings.HasPrefix(param,Video_PREFIX){
 		reqType=Video_PREFIX
