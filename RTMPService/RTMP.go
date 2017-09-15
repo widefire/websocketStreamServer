@@ -875,7 +875,7 @@ func (this *RTMP) Connect(publish bool) (err error) {
 	encoder.EncodeInt24(AMF0_object_end)
 
 	pkt.Body, err = encoder.GetData()
-
+	logger.LOGD(pkt.Body)
 	if err != nil {
 		return
 	}

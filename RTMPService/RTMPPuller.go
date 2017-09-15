@@ -420,9 +420,12 @@ func (this *RTMPPuller) handleInvoke(pkt *RTMPPacket) (err error) {
 		return
 	}
 	methodProp := amfobj.Props.Front().Value.(*AMF0Property)
+	logger.LOGD(methodProp.Value.StrValue)
 	switch methodProp.Value.StrValue {
+
 	case "_result":
 		err = this.handleRTMPResult(amfobj)
+		logger.LOGD(pkt.Body,pkt.MessageTypeId)
 	case "onBWDone":
 		this.rtmp.SendCheckBW()
 		this.rtmp.SendReleaseStream()
@@ -471,6 +474,8 @@ func (this *RTMPPuller) handleInvoke(pkt *RTMPPacket) (err error) {
 		}
 	default:
 		logger.LOGW(fmt.Sprintf("method %s not processed", methodProp.Value.StrValue))
+		amfobj.Dump()
+		logger.LOGD(pkt.Body,pkt.MessageTypeId)
 	}
 
 	return
@@ -503,6 +508,7 @@ func (this *RTMPPuller) handleRTMPResult(amfobj *AMF0Object) (err error) {
 	case "createStream":
 		this.rtmp.StreamId = uint32(amfobj.AMF0GetPropByIndex(3).Value.NumValue)
 		err = this.rtmp.SendPlay()
+		logger.LOGD("send play &&&")
 		if err != nil {
 			logger.LOGE("send play failed")
 			return

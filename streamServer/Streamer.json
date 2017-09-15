@@ -1,9 +1,9 @@
 {
     "upstreams": [
-        { "Id": "hk", "app": "live", "protocol": "rtmp", "port": 1935, "addr": "live.hkstv.hk.lxdns.com", "weight": 1 },
-		{"Id": "ams", "app": "live", "protocol": "rtmp", "port": 1935, "addr": "127.0.0.1", "weight": 1000},
-        {"Id":"taotao","app":"teach","protocol":"rtmp","port":1935,"addr":"cclive.qcus.cn","weight":1}
+        { "Id": "hk", "app": "live", "protocol": "rtmp", "port": 1935, "addr": "live.hkstv.hk.lxdns.com", "weight": 10 },
+		{"Id": "ams", "app": "live", "protocol": "rtmp", "port": 1935, "addr": "127.0.0.1", "weight": 1},
+        {"Id":"taotao","app":"live","protocol":"rtmp","port":3935,"addr":"127.0.0.1","weight":1000}
     ],
-    "upstreamsTimeoutSec": 5,
+    "upstreamsTimeoutSec": 1000,
     "mediaDataTimeoutSec": 10
 }

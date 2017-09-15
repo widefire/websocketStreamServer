@@ -9,9 +9,8 @@ import (
 	"mediaTypes/flv"
 	"github.com/panda-media/muxer-fmp4/dashSlicer"
 	"github.com/panda-media/muxer-fmp4/codec/H264"
-
-	"os"
 )
+
 
 type DASHSource struct {
 	clientId string
@@ -41,11 +40,16 @@ func (this *DASHSource)serveHTTP(reqType,param string,w http.ResponseWriter,req 
 
 func (this *DASHSource)serveMPD(param string,w http.ResponseWriter,req *http.Request)  {
 
-	mpd,err:= this.slicer.GetLastedMPD()
+	mpd,err:= this.slicer.GetMPD()
 	if err!=nil{
 		logger.LOGE(err.Error())
 		return
 	}
+	//mpd,err=wssAPI.ReadFileAll("mpd/taotao.mpd")
+	//if err!=nil{
+	//	logger.LOGE(err.Error())
+	//	return
+	//}
 	w.Header().Set("Content-Type","application/dash+xml")
 	w.Header().Set("Access-Control-Allow-Origin","*")
 	w.Write(mpd)
@@ -60,11 +64,11 @@ func (this *DASHSource)serveVideo(param string,w http.ResponseWriter,req *http.R
 	}
 	if data!=nil{
 		w.Write(data)
-		wssAPI.CreateDirectory("dashMedia")
-		fileName:="dashMedia/"+param
-		fp,_:=os.Create(fileName)
-		defer fp.Close()
-		fp.Write(data)
+		//wssAPI.CreateDirectory("dashMedia")
+		//fileName:="dashMedia/"+param
+		//fp,_:=os.Create(fileName)
+		//defer fp.Close()
+		//fp.Write(data)
 	}
 }
 
@@ -76,17 +80,17 @@ func (this *DASHSource)serveAudio(param string,w http.ResponseWriter,req *http.R
 	}
 	if data!=nil{
 		w.Write(data)
-		wssAPI.CreateDirectory("dashMedia")
-		fileName:="dashMedia/"+param
-		fp,_:=os.Create(fileName)
-		defer fp.Close()
-		fp.Write(data)
+		//wssAPI.CreateDirectory("dashMedia")
+		//fileName:="dashMedia/"+param
+		//fp,_:=os.Create(fileName)
+		//defer fp.Close()
+		//fp.Write(data)
 	}
 }
 
 func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
 
-	this.slicer=dashSlicer.NEWSlicer(true,2000,10000,5)
+	//this.slicer=dashSlicer.NEWSlicer(true,2000,10000,5)
 
 	var ok bool
 	this.streamName,ok=msg.Param1.(string)

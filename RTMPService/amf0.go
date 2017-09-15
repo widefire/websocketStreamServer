@@ -556,14 +556,12 @@ func (this *AMF0Object) dumpProp(prop *AMF0Property) {
 	switch prop.PropType {
 	case AMF0_ecma_array:
 		logger.LOGT("ecma array")
-		this.dumpProp(prop)
 	case AMF0_object:
 		logger.LOGT("object")
 
 		prop.Value.ObjValue.Dump()
 	case AMF0_strict_array:
 		logger.LOGT("static array")
-		this.dumpProp(prop)
 	case AMF0_string:
 		logger.LOGT("string:" + prop.Value.StrValue)
 	case AMF0_number:

@@ -166,13 +166,6 @@ func complexHandleShake(conn net.Conn, c1 []byte) (err error) {
 		return err
 	}
 
-	//	f, err := os.Create("s1s")
-	//	f.Write(s1)
-	//	f.Close()
-	//	f, err = os.Create("s2s")
-	//	f.Write(s2Hash)
-	//	f.Close()
-
 	//recv c2
 	c2, err := wssAPI.TcpRead(conn, rtmp_randomsize)
 	if err != nil {
@@ -181,11 +174,13 @@ func complexHandleShake(conn net.Conn, c1 []byte) (err error) {
 	if len(c2) != rtmp_randomsize {
 		return errors.New("invalid c2 recved")
 	}
-	for i := 0; i < rtmp_randomsize; i++ {
-		if c2[i] != s1[i] {
-			return errors.New("rtmp handleshake error:c2 != s1 ")
-		}
-	}
+	//for i := 0; i < rtmp_randomsize; i++ {
+	//	if c2[i] != s1[i] {
+	//		return errors.New("rtmp handleshake error:c2 != s1 ")
+	//	}
+	//}
+	//cal c2
+
 	return err
 }
 

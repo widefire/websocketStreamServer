@@ -24,7 +24,7 @@ func AddRoute(port,route string,handler func(w http.ResponseWriter, req *http.Re
 
 func Start()  {
 	//for dash.js test
-	ports[":8080"].Handle("/dash_js/",http.StripPrefix("/dash_js/",http.FileServer(http.Dir("D:/"))))
+	ports[":8080"].Handle("/dash_js/",http.StripPrefix("/dash_js/",http.FileServer(http.Dir("D:/dash.js/"))))
 	ports[":8080"].Handle("/playease/",http.StripPrefix("/playease/",http.FileServer(http.Dir("D:/playease/"))))
 	for k,v:=range ports  {
 		go func(addr string,handler http.Handler){
