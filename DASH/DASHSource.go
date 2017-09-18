@@ -9,6 +9,8 @@ import (
 	"mediaTypes/flv"
 	"github.com/panda-media/muxer-fmp4/dashSlicer"
 	"github.com/panda-media/muxer-fmp4/codec/H264"
+	"fmt"
+	"strings"
 )
 
 
@@ -21,6 +23,7 @@ type DASHSource struct {
 	inSvr bool
 
 	slicer *dashSlicer.DASHSlicer
+	mediaReceiver *FMP4Cache
 	appendedAACHeader bool
 	appendedKeyFrame bool
 }
@@ -57,41 +60,49 @@ func (this *DASHSource)serveMPD(param string,w http.ResponseWriter,req *http.Req
 }
 
 func (this *DASHSource)serveVideo(param string,w http.ResponseWriter,req *http.Request){
-	data,err:=this.slicer.GetVideoData(param)
+	var data []byte
+	var err error
+	if strings.Contains(param,"_init_"){
+		data,err=this.mediaReceiver.GetVideoHeader()
+	}else{
+		id:=int64(0)
+		fmt.Sscanf(param,"video_video0_%d_mp4.m4s",&id)
+		data,err=this.mediaReceiver.GetVideoSegment(id)
+	}
 	if err!=nil{
-		logger.LOGE(err.Error())
+		w.WriteHeader(404)
 		return
 	}
-	if data!=nil{
-		w.Write(data)
-		//wssAPI.CreateDirectory("dashMedia")
-		//fileName:="dashMedia/"+param
-		//fp,_:=os.Create(fileName)
-		//defer fp.Close()
-		//fp.Write(data)
-	}
+
+	w.Write(data)
 }
 
 func (this *DASHSource)serveAudio(param string,w http.ResponseWriter,req *http.Request){
-	data,err:=this.slicer.GetAudioData(param)
+	var data []byte
+	var err error
+	if strings.Contains(param,"_init_"){
+		data,err=this.mediaReceiver.GetAudioHeader()
+	}else{
+		id:=int64(0)
+		fmt.Sscanf(param,"audio_audio0_%d_mp4.m4s",&id)
+		data,err=this.mediaReceiver.GetAudioSegment(id)
+	}
 	if err!=nil{
-		logger.LOGE(err.Error())
+		w.WriteHeader(404)
 		return
 	}
-	if data!=nil{
-		w.Write(data)
-		//wssAPI.CreateDirectory("dashMedia")
-		//fileName:="dashMedia/"+param
-		//fp,_:=os.Create(fileName)
-		//defer fp.Close()
-		//fp.Write(data)
-	}
+	w.Write(data)
 }
 
 func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
 
 	//this.slicer=dashSlicer.NEWSlicer(true,2000,10000,5)
-
+	this.mediaReceiver=NewFMP4Cache(5)
+	this.slicer,err=dashSlicer.NEWSlicer(1000,5000,5,this.mediaReceiver)
+	if err!=nil{
+		logger.LOGE(err.Error())
+		return
+	}
 	var ok bool
 	this.streamName,ok=msg.Param1.(string)
 	if false==ok{
@@ -172,6 +183,7 @@ func (this *DASHSource)addFlvTag(tag *flv.FlvTag)  {
 	switch tag.TagType {
 	case flv.FLV_TAG_Audio:
 		if false==this.appendedAACHeader{
+			logger.LOGD("AAC")
 			this.slicer.AddAACFrame(tag.Data[2:])
 			this.appendedAACHeader=true
 		}else{
