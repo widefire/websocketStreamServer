@@ -11,6 +11,7 @@ import (
 	"github.com/panda-media/muxer-fmp4/codec/H264"
 	"fmt"
 	"strings"
+	"mediaTypes/h264"
 )
 
 
@@ -26,6 +27,8 @@ type DASHSource struct {
 	mediaReceiver *FMP4Cache
 	appendedAACHeader bool
 	appendedKeyFrame bool
+	audioHeader *flv.FlvTag
+	videoHeader *flv.FlvTag
 }
 
 func (this *DASHSource)serveHTTP(reqType,param string,w http.ResponseWriter,req *http.Request)  {
@@ -43,6 +46,10 @@ func (this *DASHSource)serveHTTP(reqType,param string,w http.ResponseWriter,req 
 
 func (this *DASHSource)serveMPD(param string,w http.ResponseWriter,req *http.Request)  {
 
+	if nil==this.slicer{
+		w.WriteHeader(404)
+		return
+	}
 	mpd,err:= this.slicer.GetMPD()
 	if err!=nil{
 		logger.LOGE(err.Error())
@@ -97,12 +104,7 @@ func (this *DASHSource)serveAudio(param string,w http.ResponseWriter,req *http.R
 func (this *DASHSource) Init(msg *wssAPI.Msg) (err error) {
 
 	//this.slicer=dashSlicer.NEWSlicer(true,2000,10000,5)
-	this.mediaReceiver=NewFMP4Cache(5)
-	this.slicer,err=dashSlicer.NEWSlicer(1000,5000,5,this.mediaReceiver)
-	if err!=nil{
-		logger.LOGE(err.Error())
-		return
-	}
+
 	var ok bool
 	this.streamName,ok=msg.Param1.(string)
 	if false==ok{
@@ -179,66 +181,108 @@ func (this *DASHSource) ProcessMessage(msg *wssAPI.Msg) (err error) {
 	return
 }
 
+func (this *DASHSource)createSlicer() (err error){
+	var fps int
+	if nil!=this.videoHeader {
+		if this.videoHeader.Data[0] == 0x17 && this.videoHeader.Data[1] == 0 {
+			avc, err := H264.DecodeAVC(this.videoHeader.Data[5:])
+			if err != nil {
+				logger.LOGE(err.Error())
+				return err
+			}
+			for e := avc.SPS.Front(); e != nil; e = e.Next() {
+				_,_,fps=h264.ParseSPS(e.Value.([]byte))
+				break;
+			}
+		}
+		this.mediaReceiver = NewFMP4Cache(5)
+		this.slicer, err = dashSlicer.NEWSlicer(fps, 1000, 1000, 1000, 9000, 5, this.mediaReceiver)
+		if err != nil {
+			logger.LOGE(err.Error())
+			return err
+		}
+	}else{
+		err=errors.New("invalid video  header")
+		return
+	}
+
+	if nil!=this.audioHeader{
+		this.slicer.AddAACFrame(this.audioHeader.Data[2:],int64(this.audioHeader.Timestamp))
+	}
+	tag:=this.videoHeader.Copy()
+	avc,err:=H264.DecodeAVC(tag.Data[5:])
+	if err!=nil{
+		logger.LOGE(err.Error())
+		return
+	}
+	for e := avc.SPS.Front(); e != nil; e = e.Next() {
+		nal := make([]byte, 3+len(e.Value.([]byte)))
+		nal[0] = 0
+		nal[1] = 0
+		nal[2] = 1
+		copy(nal[3:], e.Value.([]byte))
+		this.slicer.AddH264Nals(nal,int64(tag.Timestamp))
+	}
+	for e := avc.PPS.Front(); e != nil; e = e.Next() {
+		nal := make([]byte, 3+len(e.Value.([]byte)))
+		nal[0] = 0
+		nal[1] = 0
+		nal[2] = 1
+		copy(nal[3:], e.Value.([]byte))
+		this.slicer.AddH264Nals(nal,int64(tag.Timestamp))
+	}
+	return
+}
+
 func (this *DASHSource)addFlvTag(tag *flv.FlvTag)  {
 	switch tag.TagType {
 	case flv.FLV_TAG_Audio:
+		if nil==this.audioHeader{
+			this.audioHeader=tag.Copy()
+			return
+		}else if this.slicer==nil {
+			this.createSlicer()
+		}
 		if false==this.appendedAACHeader{
 			logger.LOGD("AAC")
-			this.slicer.AddAACFrame(tag.Data[2:])
+			this.slicer.AddAACFrame(tag.Data[2:],int64(tag.Timestamp))
 			this.appendedAACHeader=true
 		}else{
 			if this.appendedKeyFrame{
-				this.slicer.AddAACFrame(tag.Data[2:])
+				this.slicer.AddAACFrame(tag.Data[2:],int64(tag.Timestamp))
 			}
 		}
 	case flv.FLV_TAG_Video:
-		if tag.Data[0]==0x17&&tag.Data[1]==0{
-			logger.LOGD("AVC")
-			avc,err:=H264.DecodeAVC(tag.Data[5:])
-			if err!=nil{
-				logger.LOGE(err.Error())
-				return
-			}
-			for e := avc.SPS.Front(); e != nil; e = e.Next() {
-				nal := make([]byte, 3+len(e.Value.([]byte)))
-				nal[0] = 0
-				nal[1] = 0
-				nal[2] = 1
-				copy(nal[3:], e.Value.([]byte))
-				this.slicer.AddH264Nals(nal)
-			}
-			for e := avc.PPS.Front(); e != nil; e = e.Next() {
-				nal := make([]byte, 3+len(e.Value.([]byte)))
-				nal[0] = 0
-				nal[1] = 0
-				nal[2] = 1
-				copy(nal[3:], e.Value.([]byte))
-				this.slicer.AddH264Nals(nal)
-			}
-		}else {
-			cur := 5
-			for cur < len(tag.Data) {
-				size := int(tag.Data[cur]) << 24
-				size |= int(tag.Data[cur+1]) << 16
-				size |= int(tag.Data[cur+2]) << 8
-				size |= int(tag.Data[cur+3]) << 0
-				cur += 4
-				nal := make([]byte, 3+size)
-				nal[0] = 0
-				nal[1] = 0
-				nal[2] = 1
-				copy(nal[3:], tag.Data[cur:cur+size])
-				if false==this.appendedKeyFrame{
-					if tag.Data[cur]&0x1f==H264.NAL_IDR_SLICE{
-						this.appendedKeyFrame=true
-					}else{
-						cur+=size
-						continue
-					}
-				}
-				this.slicer.AddH264Nals(nal)
-				cur += size
-			}
+		if nil==this.videoHeader{
+			this.videoHeader=tag.Copy()
+			return
+		}else if nil==this.slicer {
+			this.createSlicer()
 		}
+
+		cur := 5
+		for cur < len(tag.Data) {
+			size := int(tag.Data[cur]) << 24
+			size |= int(tag.Data[cur+1]) << 16
+			size |= int(tag.Data[cur+2]) << 8
+			size |= int(tag.Data[cur+3]) << 0
+			cur += 4
+			nal := make([]byte, 3+size)
+			nal[0] = 0
+			nal[1] = 0
+			nal[2] = 1
+			copy(nal[3:], tag.Data[cur:cur+size])
+			if false==this.appendedKeyFrame{
+				if tag.Data[cur]&0x1f==H264.NAL_IDR_SLICE{
+					this.appendedKeyFrame=true
+				}else{
+					cur+=size
+					continue
+				}
+			}
+			this.slicer.AddH264Nals(nal,int64(tag.Timestamp))
+			cur += size
+		}
+
 	}
 }
