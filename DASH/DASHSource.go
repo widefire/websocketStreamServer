@@ -36,10 +36,10 @@ func (this *DASHSource)serveHTTP(reqType,param string,w http.ResponseWriter,req 
 	case MPD_PREFIX:
 		this.serveMPD(param,w,req)
 	case Video_PREFIX:
-		logger.LOGD(param)
+		//logger.LOGD(param)
 		this.serveVideo(param,w,req)
 	case Audio_PREFIX:
-		logger.LOGD(param)
+		//logger.LOGD(param)
 		this.serveAudio(param,w,req)
 	}
 }
@@ -259,7 +259,6 @@ func (this *DASHSource)addFlvTag(tag *flv.FlvTag)  {
 		}else if nil==this.slicer {
 			this.createSlicer()
 		}
-
 		cur := 5
 		for cur < len(tag.Data) {
 			size := int(tag.Data[cur]) << 24
@@ -280,9 +279,12 @@ func (this *DASHSource)addFlvTag(tag *flv.FlvTag)  {
 					continue
 				}
 			}
-			this.slicer.AddH264Nals(nal,int64(tag.Timestamp))
+			//this.slicer.AddH264Nals(nal,int64(tag.Timestamp))
 			cur += size
 		}
-
+		compositionTime:=int(tag.Data[2])<<16
+		compositionTime|=int(tag.Data[3])<<8
+		compositionTime|=int(tag.Data[4])<<0
+		this.slicer.AddH264Frame(tag.Data[5:],int64(tag.Timestamp),compositionTime)
 	}
 }
