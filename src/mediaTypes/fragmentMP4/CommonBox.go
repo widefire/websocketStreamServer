@@ -1,0 +1,13 @@
+package fragmentMP4
+
+const (
+	TRACK_VIDEO=iota+1
+	TRACK_AUDIO
+	TRACK_NEXT
+)
+
+const (
+	VIDE_TIME_SCALE=90000
+	AAC_SAMPLE_SIZE=1024
+	MP3_SAMPLE_SIZE=1152
+)
