@@ -19,4 +19,5 @@ func init() {
 }
 func main() {
 	log.Error("Helloerror")
+	log.Warn("hello warn")
 }
