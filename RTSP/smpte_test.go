@@ -17,5 +17,8 @@ func TestCheckSMPTE(t *testing.T) {
 	if !IsSMPTE(t1) {
 		t.Error("check is smpte failed")
 	}
+
+	
+
 	return
 }
