@@ -1,0 +1,10 @@
+package RTSP
+
+type RTSP_RANGE_TYPE int32
+
+const (
+	_ RTSP_RANGE_TYPE = iota
+	RTSP_RANGE_SMPTE
+	RTSP_RANGE_NPT
+	RTSP_RANGE_CLOCK
+)
