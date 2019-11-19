@@ -24,11 +24,13 @@ const smpte_prefix = "smpte"
 var regType *regexp.Regexp
 var regInt *regexp.Regexp
 var regTwoDigit *regexp.Regexp
+var regNumber *regexp.Regexp
 
 func init() {
-	regType = regexp.MustCompile("smpte-[0-9]*=")
+	regType = regexp.MustCompile("smpte-[0-9]+=")
 	regInt = regexp.MustCompile("[1-9][0-9]*")
 	regTwoDigit = regexp.MustCompile("[0-9][0-9]")
+	regNumber = regexp.MustCompile("[0-9]+")
 }
 
 func IsSMPTE(line string) bool {
@@ -58,7 +60,14 @@ type Smpte_timestamp struct {
 	Subframes int
 }
 
-func ParseSMPTE(line string) (err error, drop bool, frameRate interface{}, from, to *Smpte_timestamp) {
+type Smpte_Range struct {
+	Drop      bool
+	FrameRate int
+	Begin     *Smpte_timestamp
+	End       *Smpte_timestamp
+}
+
+func ParseSMPTE(line string) (err error, smpteRange *Smpte_Range) {
 
 	if !IsSMPTE(line) {
 		err = errors.New("not smpte timestamp")
@@ -68,22 +77,23 @@ func ParseSMPTE(line string) (err error, drop bool, frameRate interface{}, from,
 	eqIndex := strings.Index(line, "=")
 	hyphenIndex := strings.Index(line, "-")
 
+	smpteRange = &Smpte_Range{}
+
 	prefix := "smpte="
 	if hyphenIndex < eqIndex {
-		drop = false
+		smpteRange.Drop = false
 		prefix = regType.FindString(line)
 		if len(prefix) == 0 {
 			err = errors.New("bad framerate")
 			return
 		}
 		strFrameRate := regInt.FindString(prefix)
-		frameRate, err = strconv.Atoi(strFrameRate)
+		smpteRange.FrameRate, err = strconv.Atoi(strFrameRate)
 		if err != nil {
 			return
 		}
 	} else {
-		drop = true
-		frameRate = SMPTE_30_drop_frame_rate
+		smpteRange.Drop = true
 	}
 
 	from_to := strings.TrimPrefix(line, prefix)
@@ -101,7 +111,7 @@ func ParseSMPTE(line string) (err error, drop bool, frameRate interface{}, from,
 
 	//from
 	if len(fromToArr[0]) > 0 {
-		err, from = parseSampteRange(fromToArr[0])
+		err, smpteRange.Begin = parseSampteRange(fromToArr[0])
 		if err != nil {
 			return
 		}
@@ -111,12 +121,12 @@ func ParseSMPTE(line string) (err error, drop bool, frameRate interface{}, from,
 	}
 	//to
 	if len(fromToArr[1]) > 0 {
-		err, to = parseSampteRange(fromToArr[1])
+		err, smpteRange.End = parseSampteRange(fromToArr[1])
 		if err != nil {
 			return
 		}
 	} else {
-		to = nil
+		smpteRange.End = nil
 	}
 
 	return
@@ -155,15 +165,15 @@ func parseSampteRange(strRange string) (err error, ts *Smpte_timestamp) {
 	}
 
 	if c == 4 && len(subValues[3]) > 0 {
-		frame_subFrame := regTwoDigit.FindAllString(subValues[3], -1)
+		frame_subFrame := regNumber.FindAllString(subValues[3], -1)
 		count_frame_subFrame := len(frame_subFrame)
 		if count_frame_subFrame == 0 || count_frame_subFrame > 2 {
 			err = errors.New("smpte range invalid frame subframe")
 			return
 		}
 		if count_frame_subFrame > 0 {
-			if len(frame_subFrame[0]) != 2 {
-				err = errors.New("need two digit")
+			if len(frame_subFrame[0]) < 2 {
+				err = errors.New("at least need two digit hour")
 				return
 			}
 			ts.Frames, err = strconv.Atoi(frame_subFrame[0])

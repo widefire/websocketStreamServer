@@ -18,32 +18,25 @@ func TestCheckSMPTEOnlyFrom(t *testing.T) {
 		t.Error("check is smpte failed")
 	}
 
-	err, drop, frameRate, from, to := ParseSMPTE(t1)
+	err, smpteRange := ParseSMPTE(t1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !drop {
+	if !smpteRange.Drop {
 		t.Error("should drop")
 	}
 
-	ffr, ok := frameRate.(float64)
-	if !ok {
-		t.Error("not float32")
-	}
-	if ffr != SMPTE_30_drop_frame_rate {
-		t.Error("bad frame rate")
-	}
-
-	if from == nil {
+	if smpteRange.Begin == nil {
 		t.Error("from should not nil")
 	}
 
+	from := smpteRange.Begin
 	if from.Hours != 10 || from.Minutes != 12 || from.Seconds != 33 || from.Frames != 20 || from.Subframes != 0 {
 		t.Error("parse time failed ")
 	}
 
-	if to != nil {
+	if smpteRange.End != nil {
 		t.Error("t0 should nil")
 	}
 
@@ -56,23 +49,20 @@ func TestCheckSMPTEFromTo(t *testing.T) {
 		t.Error("check is smpte failed")
 	}
 
-	err, drop, frameRate, from, to := ParseSMPTE(t1)
+	err, smpteRange := ParseSMPTE(t1)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if drop {
+	if smpteRange.Drop {
 		t.Error("should not drop")
 	}
 
-	ffr, ok := frameRate.(int)
-	if !ok {
-		t.Error("not float32")
-	}
-	if ffr != 25 {
+	if smpteRange.FrameRate != 25 {
 		t.Error("bad frame rate")
 	}
 
+	from := smpteRange.Begin
 	if from == nil {
 		t.Error("from should not nil")
 	}
@@ -81,7 +71,7 @@ func TestCheckSMPTEFromTo(t *testing.T) {
 		t.Error("parse time failed ")
 	}
 
-	if to == nil {
+	if smpteRange.End == nil {
 		t.Error("t0 should not nil")
 	}
 
