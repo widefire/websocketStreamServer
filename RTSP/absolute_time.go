@@ -78,7 +78,7 @@ func parseDateTime(strDateTime string) (err error, dateTime *UTC_DateTime) {
 	}
 
 	ymdAndHms := strings.Split(strDateTime, "T")
-	if len(ymdAndHms) != 2 || len(ymdAndHms) != 8 {
+	if len(ymdAndHms) != 2 || len(ymdAndHms[0]) != 8 {
 		err = errors.New("invalid utc ymd or hms")
 		return
 	}
@@ -106,12 +106,44 @@ func parseDateTime(strDateTime string) (err error, dateTime *UTC_DateTime) {
 			return
 		}
 
-		if len(strHms) > 2 {
+		if len(strHmsFractionArr) > 2 {
 			err = errors.New("hh mm  ss can only 1 dot")
 			return
 		}
 
-		//to do 计算HHMMSS.fraction
+		dateTime.Time = &UTC_Time{}
+		hms := 0
+		hms, err = strconv.Atoi(strHms)
+		if err != nil {
+			return
+		}
+
+		dateTime.Time.HH = hms / 10000
+		dateTime.Time.MM = (hms - dateTime.Time.HH*10000) / 100
+		dateTime.Time.SS = hms % 100
+
+		if dateTime.Time.HH < 0 || dateTime.Time.HH > 23 {
+			err = errors.New("invalid date time hh ,need 0-23")
+			return
+		}
+
+		if dateTime.Time.MM < 0 || dateTime.Time.MM > 59 {
+			err = errors.New("invalid date time mm ,need 0-59")
+			return
+		}
+
+		if dateTime.Time.SS < 0 || dateTime.Time.SS > 59 {
+			err = errors.New("invalid date time mm ,need 0-59")
+			return
+		}
+
+		if len(strHmsFractionArr) == 2 && len(strHmsFractionArr[1]) > 0 {
+			dateTime.Time.Fraction, err = strconv.Atoi(strHmsFractionArr[1])
+			if err != nil {
+				return
+			}
+		}
+
 	}
 
 	return

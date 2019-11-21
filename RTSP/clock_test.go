@@ -5,13 +5,13 @@ import (
 )
 
 /*
+test smpte
 Examples:
      smpte=10:12:33:20-
      smpte=10:07:33-
      smpte=10:07:00-10:07:33:05.01
      smpte-25=10:07:00-10:07:33:05.01
 */
-
 func TestCheckSMPTEOnlyFrom(t *testing.T) {
 	t1 := "smpte=10:12:33:20-"
 	if !IsSMPTE(t1) {
@@ -76,4 +76,54 @@ func TestCheckSMPTEFromTo(t *testing.T) {
 	}
 
 	return
+}
+
+// test npt
+func TestCheckNpt(t *testing.T) {
+	{
+		npt := "npt=123.45-125"
+		err, nptRange := ParseNPT(npt)
+		if err != nil {
+			t.Error(err)
+		}
+		if nptRange == nil || nptRange.Begin == nil || nptRange.End == nil {
+			t.Error("result error")
+			return
+		}
+	}
+	{
+		npt := "npt=12:05:35.3-"
+		err, nptRange := ParseNPT(npt)
+		if err != nil {
+			t.Error(err)
+		}
+		if nptRange == nil || nptRange.Begin == nil || nptRange.End != nil {
+			t.Error("result error")
+			return
+		}
+	}
+
+	{
+		npt := "npt=now-"
+		err, nptRange := ParseNPT(npt)
+		if err != nil {
+			t.Error(err)
+		}
+		if nptRange == nil || nptRange.Begin != nil || nptRange.End != nil {
+			t.Error("result error")
+			return
+		}
+	}
+}
+
+//test utc
+func TestCheckClock(t *testing.T) {
+	err, utc := ParseUTC("clock=19961108T143720.25Z-19961108T143720Z")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if utc == nil || utc.BeginDateTime == nil || utc.EndDateTime == nil {
+		return
+	}
 }
