@@ -2,17 +2,19 @@ package RTSP
 
 //method
 const (
-	RTSP_Method_DESCRIBE      = "DESCRIBE"
-	RTSP_Method_ANNOUNCE      = "ANNOUNCE"
-	RTSP_Method_GET_PARAMETER = "GET_PARAMETER"
-	RTSP_Method_OPTIONS       = "OPTIONS"
-	RTSP_Method_PAUSE         = "PAUSE"
-	RTSP_Method_PLAY          = "PLAY"
-	RTSP_Method_RECORD        = "RECORD"
-	RTSP_Method_REDIRECT      = "REDIRECT"
-	RTSP_Method_SETUP         = "SETUP"
-	RTSP_Method_SET_PARAMETER = "PARAMETER"
-	RTSP_Method_SET_TEARDOWN  = "TEARDOWN"
+	//                                           direction       	object  requirement
+	RTSP_Method_DESCRIBE      = "DESCRIBE"      //C->S 				P,S		recommended
+	RTSP_Method_ANNOUNCE      = "ANNOUNCE"      //C->S, S->C		P,S		optional
+	RTSP_Method_GET_PARAMETER = "GET_PARAMETER" //C->S, S->C		P,S		optional
+	RTSP_Method_OPTIONS       = "OPTIONS"       //C->S, S->C		P,S		required (S->C: optional)
+	RTSP_Method_PAUSE         = "PAUSE"         //C->S				P,S		recommended
+	RTSP_Method_PLAY          = "PLAY"          //C->S				P,S		required
+	RTSP_Method_RECORD        = "RECORD"        //C->S				P,S		optional
+	RTSP_Method_REDIRECT      = "REDIRECT"      //S->C				P,S		optional
+	RTSP_Method_SETUP         = "SETUP"         //C->S				S		required
+	RTSP_Method_SET_PARAMETER = "PARAMETER"     //C->S, S->C		P,S		optional
+	RTSP_Method_SET_TEARDOWN  = "TEARDOWN"      //C->S				P,S		required
+
 )
 
 //status code
