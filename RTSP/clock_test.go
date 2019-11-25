@@ -1,4 +1,4 @@
-package RTSP
+package rtsp
 
 import (
 	"testing"
