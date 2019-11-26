@@ -1,5 +1,12 @@
 package sdp
 
+import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+)
+
 //https://blog.csdn.net/china_jeffery/article/details/79991986
 //https://tools.ietf.org/id/draft-nandakumar-rtcweb-sdp-01.html
 //https://max.book118.com/html/2017/1201/142356242.shtm
@@ -38,6 +45,16 @@ type Origin struct {
 	NetType        string
 	AddrType       string
 	UnicastAddress string
+}
+
+func (self *Origin) Init(line string) (err error) {
+	if !strings.HasPrefix(line, "o=") {
+		err = errors.New(fmt.Sprintf("invalid origin line %s", line))
+		return
+	}
+	payload := strings.TrimPrefix(line, "o=")
+	values := strings.Split(payload, " ")
+	return
 }
 
 type ConnectionData struct {
@@ -100,4 +117,79 @@ type MediaDescription struct {
 	BandWidth          []BandWidth     //b=* (zero or more bandwidth information lines)
 	EncryptionKeys     *EncryptionKey  //k=* (encryption key)
 	Attributes         []Attribute     //a=* (zero or more session attribute lines)
+}
+
+func ParseSdp(sdpbuf string) (sdp *SessionDescription, err error) {
+
+	lines := strings.Split(sdpbuf, "\r\n")
+	if len(lines) < 3 {
+		err = errors.New("a sdp need at least v o s")
+		return
+	}
+
+	sdp = &SessionDescription{}
+
+	hasVersion := false
+	hasOirgin := false
+	hasSession := false
+	for _, line := range lines {
+		line = strings.TrimSuffix(line, "\r\n")
+		//end
+		if len(line) == 0 {
+			break
+		}
+		if len(line) < 3 || !(line[0] >= 'a' && line[0] <= 'z') || line[1] != '=' || line[2] == ' ' {
+
+			err = errors.New(fmt.Sprintf("bad sdp line %s", line))
+			return
+		}
+		lineType := line[0]
+		switch lineType {
+		case 'v':
+			if hasVersion {
+				err = errors.New("a sdp only one version")
+				return
+			} else {
+				sdp.ProtocolVersion, err = strconv.Atoi(line[2:])
+				if err != nil {
+					return
+				}
+				if sdp.ProtocolVersion != 0 {
+					err = errors.New("sdp version only support 0 now")
+					return
+				}
+				hasVersion = true
+			}
+		case 'o':
+			if hasOirgin {
+				err = errors.New("a sdp only one Origin")
+				return
+			} else {
+				err = sdp.Origin.Init(line)
+				if err != nil {
+					return
+				}
+				hasOirgin = true
+			}
+		case 's':
+		case 'u':
+		case 'e':
+		case 'p':
+		case 'z':
+		case 't':
+		case 'r':
+		case 'm':
+		case 'i':
+		case 'c':
+		case 'b':
+		case 'k':
+		case 'a':
+		}
+	}
+
+	if !hasVersion || !hasOirgin || !hasSession {
+		return nil, errors.New("invalid sdp")
+	}
+
+	return
 }
