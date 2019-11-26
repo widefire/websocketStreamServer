@@ -11,35 +11,26 @@ o none or one
 1+ one or more
 */
 type SessionDescription struct {
-	ProtocolVersion    int            //v= (protocol version)
-	Origin             Origin         //o= (originator and session identifier)
-	SessionName        string         //s= (session name)
-	SessionInformation *string        //i=* (session information)
-	URI                *string        //u=* (URI of description)
-	EmailAddress       *string        //e=* (email address)
-	PhoneNumber        *string        //p=* (phone number)
-	ConnectionData     ConnectionData //c=* (connection information -- not required if included inall media)
-	BandWidth          []BandWidth    //b=* (zero or more bandwidth information lines)
+	ProtocolVersion    int             //v= (protocol version)
+	Origin             Origin          //o= (originator and session identifier)
+	SessionName        string          //s= (session name)
+	SessionInformation *string         //i=* (session information)
+	URI                *string         //u=* (URI of description)
+	EmailAddress       *string         //e=* (email address)
+	PhoneNumber        *string         //p=* (phone number)
+	ConnectionData     *ConnectionData //c=* (connection information -- not required if included inall media)
+	BandWidth          []BandWidth     //b=* (zero or more bandwidth information lines)
 	//One or more time descriptions ("t=" and "r=" lines; see below)
-	Timing           []Timing           //t= (time the session is active)
-	RepeatTimes      []RepeatTime       //r=* (zero or more repeat times)
-	TimeZone         []TimeZone         //z=* (time zone adjustments)
-	EncryptionKeys   []EncryptionKey    //k=* (encryption key)
-	Attributes       []Attribute        //a=* (zero or more session attribute lines)
-	MediaDescription []MediaDescription //Zero or more media descriptions
+	Timing         []Timing       //t= (time the session is active)
+	RepeatTimes    []RepeatTime   //r=* (zero or more repeat times)
+	TimeZone       []TimeZone     //z=* (time zone adjustments)
+	EncryptionKeys *EncryptionKey //k=* (encryption key)
+	Attributes     []Attribute    //a=* (zero or more session attribute lines)
+	//Zero or more media descriptions
+	//Media description, if present
+	MediaDescription []MediaDescription
 }
 
-/*
-
-Media description, if present
-m= (media name and transport address)
-i=* (media title)
-c=* (connection information -- optional if included at
-session level)
-b=* (zero or more bandwidth information lines)
-k=* (encryption key)
-a=* (zero or more media attribute lines)
-*/
 type Origin struct {
 	Username       string
 	SessionId      uint64
@@ -98,10 +89,15 @@ type Attribute struct {
 }
 
 type MediaDescription struct {
-	//未完成
-	Media     string
-	Port      int
-	PortCount *int
-	Protos    []string
-	Fmts      []string
+	//m= (media name and transport address)
+	Media              string
+	Port               int
+	PortCount          *int
+	Protos             []string
+	Fmts               []string
+	SessionInformation *string         //i=* (media title)
+	ConnectionData     *ConnectionData //c=* (connection information -- optional if included at session level)
+	BandWidth          []BandWidth     //b=* (zero or more bandwidth information lines)
+	EncryptionKeys     *EncryptionKey  //k=* (encryption key)
+	Attributes         []Attribute     //a=* (zero or more session attribute lines)
 }
