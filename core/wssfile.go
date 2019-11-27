@@ -14,17 +14,17 @@ func NewWSSFile() WSSIO {
 	return &WSSFile{}
 }
 
-func (f *WSSFile) Read(data []uint8, len int64) (num int64, err error) {
+func (f *WSSFile) Read(data []uint8) (num int, err error) {
 	if f.file == nil {
 		return 0, errors.New("must open file first")
 	}
-	count, err := f.file.Read(data[:len])
-	return int64(count), err
+	count, err := f.file.Read(data)
+	return count, err
 }
 
-func (f *WSSFile) Write(data []uint8) (num int64, err error) {
+func (f *WSSFile) Write(data []uint8) (num int, err error) {
 	count, err := f.file.Write(data)
-	return int64(count), err
+	return count, err
 }
 
 func (f *WSSFile) Seek(pos int64, whence int) error {

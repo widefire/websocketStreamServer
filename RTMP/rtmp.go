@@ -7,12 +7,14 @@ import (
 )
 
 type RTMPFormat struct {
-	io core.WSSIO
+	io      core.WSSIO
+	isInput bool
 }
 
-func NewRTMPFormat(io core.WSSIO) (core.WSSFormat, error) {
+func NewRTMPFormat(io core.WSSIO, isInput bool) (core.WSSFormat, error) {
 	f := &RTMPFormat{}
 	f.io = io
+	f.isInput = isInput
 	return f, nil
 }
 
