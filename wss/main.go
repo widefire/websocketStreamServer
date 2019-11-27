@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/widefire/websocketStreamServer/RTSP"
 )
 
 func init() {
@@ -22,7 +21,7 @@ func init() {
 func main() {
 	log.Error("Helloerror")
 	log.Warn("hello warn")
-	s := strings.Split("-10:07:00", "-")
+	s := strings.Split("aaabaaa", "b")
 	log.Info(s[0])
-	RTSP.ParseSMPTE("smpte-25=10:07:00-10:07:33:05.01")
+
 }

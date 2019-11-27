@@ -1,4 +1,4 @@
-package RTSP
+package rtsp
 
 import (
 	"errors"
@@ -7,14 +7,12 @@ import (
 	"strings"
 )
 
-//https://blog.csdn.net/andrew57/article/details/6752182
 /*
 smpte=10:12:33:20-
 smpte=10:07:33-
 smpte=10:07:00-10:07:33:05.01
 smpte-25=10:07:00-10:07:33:05.01
 */
-//https://developer.gnome.org/gst-plugins-libs/unstable/gst-plugins-base-libs-gstrtsprange.html
 
 //! framte rate 107892 / hour ,every minute fast first 2 frame ,except 0,10,20,30,40,50 minute.
 const SMPTE_30_drop_frame_rate = 29.97

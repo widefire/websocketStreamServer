@@ -1,4 +1,4 @@
-package RTSP
+package rtsp
 
 type RTSP_RANGE_TYPE int32
 
