@@ -1,9 +1,9 @@
 package core
 
 type WSSFrame struct {
-	Data       [][8]uint8
-	LineSize   [][8]uint8
-	With       int
+	Data       [][]uint8
+	LineSize   [][]uint8
+	Width      int
 	Height     int
 	Format     int
 	Channels   int
