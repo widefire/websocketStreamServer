@@ -21,7 +21,7 @@ func init() {
 func main() {
 	log.Error("Helloerror")
 	log.Warn("hello warn")
-	s := strings.Split("aaabaaa", "b")
+	s := strings.Split("- 1210471895651749945 2 IN IP4 127.0.0.1", " ")
 	log.Info(s[0])
 
 }
