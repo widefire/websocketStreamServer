@@ -119,7 +119,31 @@ func (self *ConnectionData) Init(line string) (err error) {
 
 	self.NetType = values[0]
 	self.AddrType = values[1]
-	self.ConnectionAddress = values[2]
+	self.ConnectionAddress = &ConnectionAddress{}
+	cas := strings.Split(values[2], "/")
+	self.ConnectionAddress.Address = cas[0]
+	if len(cas) == 2 {
+		self.ConnectionAddress.NumberOfAddresses = new(int)
+		*(self.ConnectionAddress.NumberOfAddresses), err = strconv.Atoi(cas[1])
+		if err != nil {
+			return
+		}
+	} else if len(cas) == 3 {
+		self.ConnectionAddress.TTL = new(int)
+		*(self.ConnectionAddress.TTL), err = strconv.Atoi(cas[1])
+		if err != nil {
+			return
+		}
+
+		self.ConnectionAddress.NumberOfAddresses = new(int)
+		*(self.ConnectionAddress.NumberOfAddresses), err = strconv.Atoi(cas[2])
+		if err != nil {
+			return
+		}
+	} else {
+		err = errors.New("bad connection address")
+		return
+	}
 
 	return
 }
@@ -168,9 +192,130 @@ type RepeatTime struct {
 	OffsetsFromStartTime []uint64
 }
 
+func parse_dhms(str string) (t uint64, err error) {
+	if len(str) == 0 {
+		err = errors.New("invalid repeat time")
+		return
+	}
+
+	stuf := str[len(str)-1]
+	t, err = strconv.ParseUint(str[0:len(str)-1], 10, 64)
+	if stuf == 'd' {
+		if err != nil {
+			return
+		}
+		t = t * 86400
+	} else if stuf == 'h' {
+		if err != nil {
+			return
+		}
+		t = t * 3600
+	} else if stuf == 'm' {
+		if err != nil {
+			return
+		}
+		t = t * 60
+	} else if stuf == 's' {
+		if err != nil {
+			return
+		}
+	} else {
+		t, err = strconv.ParseUint(str, 10, 64)
+	}
+
+	return
+}
+
+func parse_dhms_int64(str string) (t int64, err error) {
+	if len(str) == 0 {
+		err = errors.New("invalid repeat time")
+		return
+	}
+
+	stuf := str[len(str)-1]
+	t, err = strconv.ParseInt(str[0:len(str)-1], 10, 64)
+	if stuf == 'd' {
+		if err != nil {
+			return
+		}
+		t = t * 86400
+	} else if stuf == 'h' {
+		if err != nil {
+			return
+		}
+		t = t * 3600
+	} else if stuf == 'm' {
+		if err != nil {
+			return
+		}
+		t = t * 60
+	} else if stuf == 's' {
+		if err != nil {
+			return
+		}
+	} else {
+		t, err = strconv.ParseInt(str, 10, 64)
+	}
+
+	return
+}
+
+func InitRepeatTimeFromLine(line string) (rt *RepeatTime, err error) {
+	rawLine := line[2:]
+	values := strings.Split(rawLine, " ")
+	if len(values) < 3 {
+		err = errors.New("invalid repeat time")
+		return
+	}
+
+	rt.OffsetsFromStartTime = make([]uint64, 0)
+	var t uint64
+	for i, v := range values {
+		t, err = parse_dhms(v)
+		if err != nil {
+			return
+		}
+		if i == 0 {
+			rt.RepeatInterval = t
+		} else if i == 1 {
+			rt.ActiveDuration = 1
+		} else {
+			rt.OffsetsFromStartTime = append(rt.OffsetsFromStartTime, t)
+		}
+
+	}
+
+	return
+}
+
 type TimeZone struct {
 	AdjustmentTime []int64
 	Offset         []int64
+}
+
+func InitTimeZone(line string) (tz *TimeZone, err error) {
+	rawLine := line[2:]
+	values := strings.Split(rawLine, " ")
+	if len(values) < 2 || len(values)%2 != 0 {
+		err = errors.New("invalid time zone")
+		return
+	}
+
+	tz = &TimeZone{AdjustmentTime: make([]int64, 0), Offset: make([]int64, 0)}
+	for i := 0; i < len(values); i += 2 {
+		at, err := parse_dhms_int64(values[i])
+		if err != nil {
+			return nil, err
+		}
+		ot, err := parse_dhms_int64(values[i+1])
+		if err != nil {
+			return nil, err
+		}
+		tz.AdjustmentTime = append(tz.AdjustmentTime, at)
+		tz.Offset = append(tz.Offset, ot)
+	}
+
+	return
 }
 
 type EncryptionKey struct {
@@ -195,6 +340,49 @@ type MediaDescription struct {
 	BandWidth          []*BandWidth    //b=* (zero or more bandwidth information lines)
 	EncryptionKeys     *EncryptionKey  //k=* (encryption key)
 	Attributes         []*Attribute    //a=* (zero or more session attribute lines)
+}
+
+func InitMediaDescFromLine(line string) (md *MediaDescription, err error) {
+	rawLine := line[2:]
+	values := strings.Split(rawLine, " ")
+	if len(values) < 4 {
+		err = errors.New("invalid media desc")
+		return
+	}
+
+	md = &MediaDescription{}
+	md.Protos = make([]string, 0)
+	md.Fmts = make([]string, 0)
+	md.BandWidth = make([]*BandWidth, 0)
+	md.Attributes = make([]*Attribute, 0)
+
+	md.Media = values[0]
+	if strings.Contains(values[1], "/") {
+		portPortCount := strings.Split(values[1], "/")
+		if len(portPortCount) != 2 {
+			err = errors.New("bad media desc port")
+		}
+		md.Port, err = strconv.Atoi(portPortCount[0])
+		if err != nil {
+			return
+		}
+		md.PortCount = new(int)
+		var pc int
+		pc, err = strconv.Atoi(portPortCount[1])
+		if err != nil {
+			return
+		}
+		*(md.PortCount) = pc
+	} else {
+		md.Port, err = strconv.Atoi(values[1])
+		if err != nil {
+			return
+		}
+	}
+	md.Protos = strings.Split(values[2], "/")
+	md.Fmts = strings.Split(values[3], " ")
+
+	return
 }
 
 func ParseSdp(sdpbuf string) (sdp *SessionDescription, err error) {
@@ -297,6 +485,11 @@ func ParseSdp(sdpbuf string) (sdp *SessionDescription, err error) {
 				return
 			}
 		case 'z':
+			zone, err := InitTimeZone(line)
+			if err != nil {
+				return nil, err
+			}
+			sdp.TimeZone = append(sdp.TimeZone, zone)
 		case 't':
 			strT := line[2:]
 			beginTendT := strings.Split(strT, " ")
@@ -313,7 +506,18 @@ func ParseSdp(sdpbuf string) (sdp *SessionDescription, err error) {
 				return
 			}
 		case 'r':
+			rt, err := InitRepeatTimeFromLine(line)
+			if err != nil {
+				return nil, err
+			}
+			sdp.RepeatTimes = append(sdp.RepeatTimes, rt)
 		case 'm':
+			currentMediaDesc, err = InitMediaDescFromLine(line)
+			if err != nil {
+				return
+			}
+			sdp.MediaDescription = append(sdp.MediaDescription, currentMediaDesc)
+
 		case 'i':
 			if currentMediaDesc != nil {
 				currentMediaDesc.SessionInformation = new(string)
@@ -353,7 +557,38 @@ func ParseSdp(sdpbuf string) (sdp *SessionDescription, err error) {
 				sdp.BandWidth = append(sdp.BandWidth, bw)
 			}
 		case 'k':
+			subKs := strings.Split(line[2:], ":")
+			if len(subKs) == 0 || len(subKs) > 2 {
+				err = errors.New("invalid encryption keys")
+				return
+			}
+			key := &EncryptionKey{}
+			key.Method = subKs[0]
+			if len(subKs) == 2 {
+				key.EncryptionKey = subKs[1]
+			}
+			if currentMediaDesc != nil {
+				currentMediaDesc.EncryptionKeys = key
+			} else {
+				sdp.EncryptionKeys = key
+			}
+
 		case 'a':
+			subAttrs := strings.Split(line[2:], ":")
+			if len(subAttrs) == 0 || len(subAttrs) > 2 {
+				err = errors.New("invalid encryption keys")
+				return
+			}
+			attr := &Attribute{}
+			attr.Attribute = subAttrs[0]
+			if len(subAttrs) == 2 {
+				attr.Value = subAttrs[1]
+			}
+			if currentMediaDesc != nil {
+				currentMediaDesc.Attributes = append(currentMediaDesc.Attributes, attr)
+			} else {
+				sdp.Attributes = append(sdp.Attributes, attr)
+			}
 		}
 	}
 

@@ -1,6 +1,7 @@
 package sdp
 
 import (
+	"log"
 	"os"
 	"testing"
 )
@@ -27,5 +28,12 @@ func TestParseSDP(t *testing.T) {
 		t.Error("read sdp file failed")
 		return
 	}
-
+	sdp, err := ParseSdp(string(sdpBuf))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if sdp != nil {
+		log.Println(sdp.ProtocolVersion)
+	}
 }
