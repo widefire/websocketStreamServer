@@ -122,7 +122,9 @@ func (self *ConnectionData) Init(line string) (err error) {
 	self.ConnectionAddress = &ConnectionAddress{}
 	cas := strings.Split(values[2], "/")
 	self.ConnectionAddress.Address = cas[0]
-	if len(cas) == 2 {
+	if len(cas) == 1 {
+		return
+	} else if len(cas) == 2 {
 		self.ConnectionAddress.NumberOfAddresses = new(int)
 		*(self.ConnectionAddress.NumberOfAddresses), err = strconv.Atoi(cas[1])
 		if err != nil {
@@ -557,6 +559,7 @@ func ParseSdp(sdpbuf string) (sdp *SessionDescription, err error) {
 				sdp.BandWidth = append(sdp.BandWidth, bw)
 			}
 		case 'k':
+			//todo 只能用第一个分割
 			subKs := strings.Split(line[2:], ":")
 			if len(subKs) == 0 || len(subKs) > 2 {
 				err = errors.New("invalid encryption keys")
@@ -574,9 +577,10 @@ func ParseSdp(sdpbuf string) (sdp *SessionDescription, err error) {
 			}
 
 		case 'a':
+			//todo 只能用第一个分割
 			subAttrs := strings.Split(line[2:], ":")
 			if len(subAttrs) == 0 || len(subAttrs) > 2 {
-				err = errors.New("invalid encryption keys")
+				err = errors.New("invalid attributes keys")
 				return
 			}
 			attr := &Attribute{}
