@@ -7,14 +7,17 @@ import (
 )
 
 type RTMPFormat struct {
-	io      core.WSSIO
-	isInput bool
+	io         core.WSSIO
+	isInput    bool
+	remoteTime uint32
+	path       string
 }
 
-func NewRTMPFormat(io core.WSSIO, isInput bool) (core.WSSFormat, error) {
+func NewRTMPFormat(io core.WSSIO, path string, isInput bool) (core.WSSFormat, error) {
 	f := &RTMPFormat{}
 	f.io = io
 	f.isInput = isInput
+	f.path = path
 	return f, nil
 }
 
@@ -22,7 +25,11 @@ func (r *RTMPFormat) Open() error {
 	if r.io == nil {
 		return errors.New("need io")
 	}
-	return r.handShake()
+	if r.isInput {
+		return r.HandShakeAsServer()
+	} else {
+		return r.HandShakeAsClient()
+	}
 }
 
 func (r *RTMPFormat) ReadMetadata() error {
