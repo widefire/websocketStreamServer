@@ -15,8 +15,27 @@ import (
 1 must one
 o none or one
 *+ none or more
-1+ one or more
-*/
+1+ one or more*/
+
+//Session description
+const (
+	SessionDescriptionV rune = 'v' //protocol version
+	SessionDescriptionO rune = 'o' //originator and session identifier
+	SessionDescriptionS rune = 's' //session name
+	SessionDescriptionI rune = 'i' //*session information
+	SessionDescriptionU rune = 'u' //*URI of description
+	SessionDescriptionE rune = 'e' //*email address
+	SessionDescriptionP rune = 'p' //*phone number
+	SessionDescriptionC rune = 'c' //*connection information -- not required if included in all media
+	SessionDescriptionB rune = 'b' //*zero or more bandwidth information lines
+	SessionDescriptionZ rune = 'z' //*time zone adjustments
+	SessionDescriptionK rune = 'k' //*encryption key
+	SessionDescriptionA rune = 'a' //*zero or more session attribute lines
+	SessionDescriptionT rune = 't' //time the session is active
+	SessionDescriptionR rune = 'r' //*zero or more repeat times
+	SessionDescriptionM rune = 'm' //*media name and transport address
+)
+
 type SessionDescription struct {
 	ProtocolVersion    int             //v= (protocol version)
 	Origin             Origin          //o= (originator and session identifier)
@@ -48,22 +67,87 @@ func NewSDP() (sdp *SessionDescription) {
 	return
 }
 
+/*
+Version ..
+5.1. Protocol Version ("v=")
+v=0
+one
+*/
+type Version int32
+
+/*
+Origin ..
+5.2. Origin ("o=")
+o=<username> <sess-id> <sess-version> <nettype> <addrtype>
+<unicast-address>
+one
+*/
 type Origin struct {
-	Username       string
-	SessionId      uint64
-	SessionVersion uint64
-	NetType        string
-	AddrType       string
-	UnicastAddress string
+	Username       string //"-" for empty username
+	SessionID      string //numeric string
+	SessionVersion string //numeric string
+	Nettype        string //"IN" or some other
+	Addrtype       string //"IP4" or "IP6"
+	UnicastAddress string //gen session domain name or IP4/6 addr,don't use local IP
 }
 
-func (self *Origin) Init(line string) (err error) {
-	if !strings.HasPrefix(line, "o=") {
-		err = errors.New(fmt.Sprintf("invalid origin line %s", line))
-		return
-	}
-	payload := strings.TrimPrefix(line, "o=")
-	values := strings.Split(payload, " ")
+//NettypeIn ..."Internet
+const NettypeIn = "IN"
+
+/*
+SessionName ...
+5.3. Session Name ("s=")
+s=<session name>
+one
+*/
+type SessionName string
+
+/*
+SessionInformation ...
+5.4. Session Information ("i=")
+i=<session description>
+at most one session-level "i=" field per session description,
+and at most one "i=" field per media
+*/
+type SessionInformation string
+
+/*
+URI ...
+5.5. URI ("u=")
+u=<uri>
+at most one , before media
+*/
+type URI string
+
+/*
+EmailAddress ...
+5.6. Email Address and Phone Number ("e=" and "p=")
+zero or more , before media
+*/
+type EmailAddress string
+
+/*
+PhoneNumber ...
+5.6. Email Address and Phone Number ("e=" and "p=")
+zero or more ,  before media
+*/
+type PhoneNumber string
+
+/*
+ConnectionData ...
+5.7. Connection Data ("c=")
+c=<nettype> <addrtype> <connection-address>
+each media at least one or session level must one
+*/
+type ConnectionData struct {
+	Nettype  string //IN
+	Addrtype string //IP4 or IP6
+	ConnectionAddress
+}
+
+//Init Origin from value
+func (o *Origin) Init(line string) (err error) {
+	values := strings.Split(line, " ")
 	if len(values) != 6 {
 		err = errors.New("origin must have 6 fields")
 		return
@@ -76,26 +160,14 @@ func (self *Origin) Init(line string) (err error) {
 		}
 	}
 
-	self.Username = values[0]
-	self.SessionId, err = strconv.ParseUint(values[1], 10, 64)
-	if err != nil {
-		return
-	}
-	self.SessionVersion, err = strconv.ParseUint(values[2], 10, 64)
-	if err != nil {
-		return
-	}
-	self.NetType = values[3]
-	self.AddrType = values[4]
-	self.UnicastAddress = values[5]
+	o.Username = values[0]
+	o.SessionID = values[1]
+	o.SessionVersion = values[2]
+	o.Nettype = values[3]
+	o.Addrtype = values[4]
+	o.UnicastAddress = values[5]
 
 	return
-}
-
-type ConnectionData struct {
-	NetType           string
-	AddrType          string
-	ConnectionAddress *ConnectionAddress
 }
 
 func (self *ConnectionData) Init(line string) (err error) {
