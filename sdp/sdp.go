@@ -134,6 +134,21 @@ zero or more ,  before media
 type PhoneNumber string
 
 /*
+ConnectionAddressDesc ...
+multicast
+	IP4	addr/ttl/(number)
+	IP6	addr/(number)
+unicast
+	IP4 	addr
+	IP6	addr
+multicast addr can't in session level
+*/
+type ConnectionAddressDesc struct{
+	Addr string
+	Ttl *int
+	NumberOfAddress *int
+}
+/*
 ConnectionData ...
 5.7. Connection Data ("c=")
 c=<nettype> <addrtype> <connection-address>
@@ -142,7 +157,7 @@ each media at least one or session level must one
 type ConnectionData struct {
 	Nettype  string //IN
 	Addrtype string //IP4 or IP6
-	ConnectionAddress
+	ConnectionAddress string
 }
 
 //Init Origin from value
