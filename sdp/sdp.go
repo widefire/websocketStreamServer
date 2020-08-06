@@ -1,6 +1,7 @@
 package sdp
 
 import (
+	"container/list"
 	"errors"
 	"fmt"
 	"strconv"
@@ -143,11 +144,12 @@ unicast
 	IP6	addr
 multicast addr can't in session level
 */
-type ConnectionAddressDesc struct{
-	Addr string
-	Ttl *int
+type ConnectionAddressDesc struct {
+	Addr            string
+	TTL             *int
 	NumberOfAddress *int
 }
+
 /*
 ConnectionData ...
 5.7. Connection Data ("c=")
@@ -155,9 +157,61 @@ c=<nettype> <addrtype> <connection-address>
 each media at least one or session level must one
 */
 type ConnectionData struct {
-	Nettype  string //IN
-	Addrtype string //IP4 or IP6
+	Nettype           string //IN
+	Addrtype          string //IP4 or IP6
 	ConnectionAddress string
+}
+
+/*
+Bandwidth ...
+5.8. Bandwidth ("b=")
+b=<bwtype>:<bandwidth>
+bwtype:
+	CT : total bandwidth
+	AS : one RTP bandwidth
+	X- : experimental purposes
+default kilobits per second
+optional
+*/
+type Bandwidth struct {
+	Bwtype         string
+	BandwidthValue uint64
+}
+
+/*
+Timing ...
+5.9. Timing ("t=")
+t=<start-time> <stop-time>
+NPT =UNIX time + 2208988800 seconds
+if StopTime=0 , after startTime not bounded
+if StartTime=0 , permanent
+if permanent ,assumption a user half an hour before active
+*/
+type Timing struct {
+	StartTime uint64
+	StopTime  uint64
+}
+
+/*
+RepeatTimes ...
+5.10. Repeat Times ("r=")
+r=<repeat interval> <active duration> <offsets from start-time>
+d h m s
+default s
+*/
+type RepeatTimes struct {
+	RepeatInterval       string
+	ActiveDuration       string
+	OffsetsFromStartTime *list.List
+}
+
+/*
+TimeZones ...
+5.11. Time Zones ("z=")
+夏令时
+z=<adjustment time> <offset> <adjustment time> <offset> ....
+*/
+type TimeZones struct {
 }
 
 //Init Origin from value
@@ -237,17 +291,6 @@ func (self *ConnectionData) Init(line string) (err error) {
 	return
 }
 
-type ConnectionAddress struct {
-	Address           string
-	TTL               *int
-	NumberOfAddresses *int
-}
-
-type BandWidth struct {
-	BandWidthType string
-	BandWidth     int
-}
-
 func InitBandWidthFromLine(line string) (bw *BandWidth, err error) {
 	if !strings.HasPrefix(line, "b=") {
 		err = errors.New(fmt.Sprintf("invalid band width line %s", line))
@@ -263,16 +306,6 @@ func InitBandWidthFromLine(line string) (bw *BandWidth, err error) {
 	bw.BandWidthType = values[0]
 	bw.BandWidth, err = strconv.Atoi(values[1])
 	return
-}
-
-/*
-t=3034423619 3042462419
-r=604800 3600 0 90000
-r=7d 1h 0 25h
-*/
-type Timing struct {
-	StartTime uint64
-	StopTime  uint64
 }
 
 type RepeatTime struct {
