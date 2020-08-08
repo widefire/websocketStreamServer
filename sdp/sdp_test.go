@@ -1,39 +1,49 @@
 package sdp
 
 import (
+	"errors"
 	"log"
 	"os"
 	"testing"
 )
 
 func TestParseSDP(t *testing.T) {
-	fp, err := os.Open("org.dat")
+	log.SetOutput(os.Stdout)
+	err := LoadAndTestSDPFromFile("sdp1.data")
 	if err != nil {
 		t.Error(err)
-		return
+	}
+	err = LoadAndTestSDPFromFile("sdp2.data")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func LoadAndTestSDPFromFile(filename string) error {
+	fp, err := os.Open(filename)
+	if err != nil {
+		return err
 	}
 	defer fp.Close()
 	fileInfo, err := fp.Stat()
 	if err != nil {
-		t.Error(err)
-		return
+		return err
 	}
 	sdpBuf := make([]byte, fileInfo.Size())
 	readCount, err := fp.Read(sdpBuf)
 	if err != nil {
-		t.Error(err)
-		return
+		return err
 	}
 	if int64(readCount) != fileInfo.Size() {
-		t.Error("read sdp file failed")
-		return
+		return errors.New("read sdp file failed")
 	}
-	sdp, err := ParseSdp(string(sdpBuf))
+	sdp, err := ParseSDP(string(sdpBuf))
 	if err != nil {
-		t.Error(err)
-		return
+		log.Println(err)
+		return err
 	}
 	if sdp != nil {
-		log.Println(sdp.ProtocolVersion)
+		log.Println(*sdp.ProtocolVersion)
 	}
+	return nil
 }

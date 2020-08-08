@@ -1,22 +1,16 @@
 package sdp
 
 import (
-	"container/list"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
 
 //https://blog.csdn.net/china_jeffery/article/details/79991986
 //https://tools.ietf.org/id/draft-nandakumar-rtcweb-sdp-01.html
-//https://max.book118.com/html/2017/1201/142356242.shtm
 //rfc 4566
-/*
-1 must one
-o none or one
-*+ none or more
-1+ one or more*/
 
 //Session description
 const (
@@ -37,35 +31,45 @@ const (
 	SessionDescriptionM rune = 'm' //*media name and transport address
 )
 
+//SessionDescription ...
 type SessionDescription struct {
-	ProtocolVersion    int             //v= (protocol version)
-	Origin             Origin          //o= (originator and session identifier)
-	SessionName        string          //s= (session name)
+	ProtocolVersion    *int            //v= (protocol version)
+	Origin             *Origin         //o= (originator and session identifier)
+	SessionName        *string         //s= (session name)
 	SessionInformation *string         //i=* (session information)
 	URI                *string         //u=* (URI of description)
-	EmailAddress       *string         //e=* (email address)
-	PhoneNumber        *string         //p=* (phone number)
+	EmailAddress       []string        //e=* (email address)
+	PhoneNumber        []string        //p=* (phone number)
 	ConnectionData     *ConnectionData //c=* (connection information -- not required if included inall media)
-	BandWidth          []*BandWidth    //b=* (zero or more bandwidth information lines)
+	Bandwidths         []*Bandwidth    //b=* (zero or more bandwidth information lines)
 	//One or more time descriptions ("t=" and "r=" lines; see below)
-	Timing         Timing         //t= (time the session is active)
-	RepeatTimes    []*RepeatTime  //r=* (zero or more repeat times)
-	TimeZone       []*TimeZone    //z=* (time zone adjustments)
-	EncryptionKeys *EncryptionKey //k=* (encryption key)
-	Attributes     []*Attribute   //a=* (zero or more session attribute lines)
-	//Zero or more media descriptions
-	//Media description, if present
-	MediaDescription []*MediaDescription
+	Timing            *Timing        //t= (time the session is active)
+	RepeatTimes       []*RepeatTime  //r=* (zero or more repeat times)
+	TimeZones         []*TimeZone    //z=* (time zone adjustments)
+	EncryptionKey     *EncryptionKey //k=* (encryption key)
+	Attributes        []*Attribute   //a=* (zero or more session attribute lines)
+	MediaDescriptions []*MediaLevel
 }
 
-func NewSDP() (sdp *SessionDescription) {
-	sdp = &SessionDescription{}
-	sdp.BandWidth = make([]*BandWidth, 0)
-	sdp.RepeatTimes = make([]*RepeatTime, 0)
-	sdp.TimeZone = make([]*TimeZone, 0)
-	sdp.Attributes = make([]*Attribute, 0)
-	sdp.MediaDescription = make([]*MediaDescription, 0)
-	return
+//NewSDP ...
+func NewSDP() *SessionDescription {
+	return &SessionDescription{
+		ProtocolVersion:    nil,
+		Origin:             nil,
+		SessionName:        nil,
+		SessionInformation: nil,
+		URI:                nil,
+		EmailAddress:       make([]string, 0),
+		PhoneNumber:        make([]string, 0),
+		ConnectionData:     nil,
+		Bandwidths:         make([]*Bandwidth, 0),
+		Timing:             nil,
+		RepeatTimes:        make([]*RepeatTime, 0),
+		TimeZones:          make([]*TimeZone, 0),
+		EncryptionKey:      nil,
+		Attributes:         make([]*Attribute, 0),
+		MediaDescriptions:  make([]*MediaLevel, 0),
+	}
 }
 
 /*
@@ -171,7 +175,7 @@ bwtype:
 	AS : one RTP bandwidth
 	X- : experimental purposes
 default kilobits per second
-optional
+optional , zero or more
 */
 type Bandwidth struct {
 	Bwtype         string
@@ -193,531 +197,471 @@ type Timing struct {
 }
 
 /*
-RepeatTimes ...
+RepeatTime ...
 5.10. Repeat Times ("r=")
 r=<repeat interval> <active duration> <offsets from start-time>
 d h m s
 default s
 */
-type RepeatTimes struct {
+type RepeatTime struct {
 	RepeatInterval       string
 	ActiveDuration       string
-	OffsetsFromStartTime *list.List
+	OffsetsFromStartTime []string
+}
+
+//NewRepeatTime ...
+func NewRepeatTime() *RepeatTime {
+	return &RepeatTime{
+		RepeatInterval:       "",
+		ActiveDuration:       "",
+		OffsetsFromStartTime: make([]string, 0),
+	}
 }
 
 /*
-TimeZones ...
+TimeZone ...
 5.11. Time Zones ("z=")
 夏令时
 z=<adjustment time> <offset> <adjustment time> <offset> ....
+在某个时刻，调整基准时间
 */
-type TimeZones struct {
-}
-
-//Init Origin from value
-func (o *Origin) Init(line string) (err error) {
-	values := strings.Split(line, " ")
-	if len(values) != 6 {
-		err = errors.New("origin must have 6 fields")
-		return
-	}
-
-	for _, v := range values {
-		if len(v) == 0 {
-			err = errors.New("origin field can not empty")
-			return
-		}
-	}
-
-	o.Username = values[0]
-	o.SessionID = values[1]
-	o.SessionVersion = values[2]
-	o.Nettype = values[3]
-	o.Addrtype = values[4]
-	o.UnicastAddress = values[5]
-
-	return
-}
-
-func (self *ConnectionData) Init(line string) (err error) {
-	if !strings.HasPrefix(line, "c=") {
-		err = errors.New(fmt.Sprintf("invalid connection line %s", line))
-		return
-	}
-	payload := strings.TrimPrefix(line, "c=")
-	values := strings.Split(payload, " ")
-	if len(values) != 3 {
-		err = errors.New("origin must have 3 fields")
-		return
-	}
-
-	for _, v := range values {
-		if len(v) == 0 {
-			err = errors.New("connection field can not empty")
-			return
-		}
-	}
-
-	self.NetType = values[0]
-	self.AddrType = values[1]
-	self.ConnectionAddress = &ConnectionAddress{}
-	cas := strings.Split(values[2], "/")
-	self.ConnectionAddress.Address = cas[0]
-	if len(cas) == 1 {
-		return
-	} else if len(cas) == 2 {
-		self.ConnectionAddress.NumberOfAddresses = new(int)
-		*(self.ConnectionAddress.NumberOfAddresses), err = strconv.Atoi(cas[1])
-		if err != nil {
-			return
-		}
-	} else if len(cas) == 3 {
-		self.ConnectionAddress.TTL = new(int)
-		*(self.ConnectionAddress.TTL), err = strconv.Atoi(cas[1])
-		if err != nil {
-			return
-		}
-
-		self.ConnectionAddress.NumberOfAddresses = new(int)
-		*(self.ConnectionAddress.NumberOfAddresses), err = strconv.Atoi(cas[2])
-		if err != nil {
-			return
-		}
-	} else {
-		err = errors.New("bad connection address")
-		return
-	}
-
-	return
-}
-
-func InitBandWidthFromLine(line string) (bw *BandWidth, err error) {
-	if !strings.HasPrefix(line, "b=") {
-		err = errors.New(fmt.Sprintf("invalid band width line %s", line))
-		return
-	}
-	payload := strings.TrimPrefix(line, "b=")
-	values := strings.Split(payload, ":")
-	if len(values) != 2 || len(values[0]) == 0 || len(values[1]) == 0 {
-		err = errors.New("empty band width")
-		return
-	}
-	bw = &BandWidth{}
-	bw.BandWidthType = values[0]
-	bw.BandWidth, err = strconv.Atoi(values[1])
-	return
-}
-
-type RepeatTime struct {
-	RepeatInterval       uint64
-	ActiveDuration       uint64
-	OffsetsFromStartTime []uint64
-}
-
-func parse_dhms(str string) (t uint64, err error) {
-	if len(str) == 0 {
-		err = errors.New("invalid repeat time")
-		return
-	}
-
-	stuf := str[len(str)-1]
-	t, err = strconv.ParseUint(str[0:len(str)-1], 10, 64)
-	if stuf == 'd' {
-		if err != nil {
-			return
-		}
-		t = t * 86400
-	} else if stuf == 'h' {
-		if err != nil {
-			return
-		}
-		t = t * 3600
-	} else if stuf == 'm' {
-		if err != nil {
-			return
-		}
-		t = t * 60
-	} else if stuf == 's' {
-		if err != nil {
-			return
-		}
-	} else {
-		t, err = strconv.ParseUint(str, 10, 64)
-	}
-
-	return
-}
-
-func parse_dhms_int64(str string) (t int64, err error) {
-	if len(str) == 0 {
-		err = errors.New("invalid repeat time")
-		return
-	}
-
-	stuf := str[len(str)-1]
-	t, err = strconv.ParseInt(str[0:len(str)-1], 10, 64)
-	if stuf == 'd' {
-		if err != nil {
-			return
-		}
-		t = t * 86400
-	} else if stuf == 'h' {
-		if err != nil {
-			return
-		}
-		t = t * 3600
-	} else if stuf == 'm' {
-		if err != nil {
-			return
-		}
-		t = t * 60
-	} else if stuf == 's' {
-		if err != nil {
-			return
-		}
-	} else {
-		t, err = strconv.ParseInt(str, 10, 64)
-	}
-
-	return
-}
-
-func InitRepeatTimeFromLine(line string) (rt *RepeatTime, err error) {
-	rawLine := line[2:]
-	values := strings.Split(rawLine, " ")
-	if len(values) < 3 {
-		err = errors.New("invalid repeat time")
-		return
-	}
-
-	rt.OffsetsFromStartTime = make([]uint64, 0)
-	var t uint64
-	for i, v := range values {
-		t, err = parse_dhms(v)
-		if err != nil {
-			return
-		}
-		if i == 0 {
-			rt.RepeatInterval = t
-		} else if i == 1 {
-			rt.ActiveDuration = 1
-		} else {
-			rt.OffsetsFromStartTime = append(rt.OffsetsFromStartTime, t)
-		}
-
-	}
-
-	return
-}
-
 type TimeZone struct {
-	AdjustmentTime []int64
-	Offset         []int64
+	AdjustmentTime []uint64
+	Offset         []string
 }
 
-func InitTimeZone(line string) (tz *TimeZone, err error) {
-	rawLine := line[2:]
-	values := strings.Split(rawLine, " ")
-	if len(values) < 2 || len(values)%2 != 0 {
-		err = errors.New("invalid time zone")
-		return
+//NewTimeZone ...
+func NewTimeZone() *TimeZone {
+	return &TimeZone{
+		AdjustmentTime: make([]uint64, 0),
+		Offset:         make([]string, 0),
 	}
-
-	tz = &TimeZone{AdjustmentTime: make([]int64, 0), Offset: make([]int64, 0)}
-	for i := 0; i < len(values); i += 2 {
-		at, err := parse_dhms_int64(values[i])
-		if err != nil {
-			return nil, err
-		}
-		ot, err := parse_dhms_int64(values[i+1])
-		if err != nil {
-			return nil, err
-		}
-		tz.AdjustmentTime = append(tz.AdjustmentTime, at)
-		tz.Offset = append(tz.Offset, ot)
-	}
-
-	return
 }
 
+/*
+EncryptionKey ...
+5.12. Encryption Keys ("k=")
+k=<method>
+k=<method>:<encryption key>
+sdp level for all media,media level for media
+optional, NOT RECOMMENDED
+*/
 type EncryptionKey struct {
 	Method        string
-	EncryptionKey string
+	EncryptionKey *string
 }
 
+//EncryptionMethodClear ... clear
+const EncryptionMethodClear = "clear"
+
+//EncryptionMethodBase64 ... base64
+const EncryptionMethodBase64 = "base64"
+
+//EncryptionMethodURI ... get key from uri
+const EncryptionMethodURI = "uri"
+
+//EncryptionMethodPrompt ... prompt
+const EncryptionMethodPrompt = "prompt"
+
+/*
+Attribute ...
+5.13. Attributes ("a=")
+a=<attribute>	flag
+a=<attribute>:<value> k:v
+*/
 type Attribute struct {
-	Attribute string
-	Value     string
+	AttributeName string
+	Value         *string
 }
 
+/*
+MediaDescription ...
+5.14. Media Descriptions ("m=")
+m=<media> <port> <proto> <fmt> ...
+*/
 type MediaDescription struct {
-	//m= (media name and transport address)
-	Media              string
-	Port               int
-	PortCount          *int
-	Protos             []string
-	Fmts               []string
-	SessionInformation *string         //i=* (media title)
-	ConnectionData     *ConnectionData //c=* (connection information -- optional if included at session level)
-	BandWidth          []*BandWidth    //b=* (zero or more bandwidth information lines)
-	EncryptionKeys     *EncryptionKey  //k=* (encryption key)
-	Attributes         []*Attribute    //a=* (zero or more session attribute lines)
+	Media         string //media type:"audio","video", "text", "application", and "message"
+	Port          int    //defaut RTP odd,RTCP=RTP+1
+	NumberOfPorts *int
+	Proto         string
+	Fmt           []string
 }
 
-func InitMediaDescFromLine(line string) (md *MediaDescription, err error) {
-	rawLine := line[2:]
-	values := strings.Split(rawLine, " ")
-	if len(values) < 4 {
-		err = errors.New("invalid media desc")
-		return
-	}
+//NewMediaDescription ...
+// func NewMediaDescription() *MediaDescription {
+// 	instance := &MediaDescription{}
+// 	instance.Fmt = make([]string, 0)
+// 	return instance
+// }
 
-	md = &MediaDescription{}
-	md.Protos = make([]string, 0)
-	md.Fmts = make([]string, 0)
-	md.BandWidth = make([]*BandWidth, 0)
-	md.Attributes = make([]*Attribute, 0)
+//MediaProtoUDP ... udp
+const MediaProtoUDP = "udp"
 
-	md.Media = values[0]
-	if strings.Contains(values[1], "/") {
-		portPortCount := strings.Split(values[1], "/")
-		if len(portPortCount) != 2 {
-			err = errors.New("bad media desc port")
-		}
-		md.Port, err = strconv.Atoi(portPortCount[0])
-		if err != nil {
-			return
-		}
-		md.PortCount = new(int)
-		var pc int
-		pc, err = strconv.Atoi(portPortCount[1])
-		if err != nil {
-			return
-		}
-		*(md.PortCount) = pc
-	} else {
-		md.Port, err = strconv.Atoi(values[1])
-		if err != nil {
-			return
-		}
-	}
-	md.Protos = strings.Split(values[2], "/")
-	md.Fmts = strings.Split(values[3], " ")
+//MediaProtoRTPAVP ... RTP/AVP
+const MediaProtoRTPAVP = "RTP/AVP"
 
-	return
+//MediaProtoRTPSAVP ... RTP/SAVP
+const MediaProtoRTPSAVP = "RTP/SAVP"
+
+//MediaLevel ...
+type MediaLevel struct {
+	MediaDescription
+	SessionInformation *string
+	ConnectionData     *ConnectionData
+	BandWidths         []*Bandwidth
+	EncryptionKey      *EncryptionKey
+	Attribute          []*Attribute
 }
 
-func ParseSdp(sdpbuf string) (sdp *SessionDescription, err error) {
+//NewMediaLevel ...
+func NewMediaLevel() *MediaLevel {
+	mediaLevel := &MediaLevel{}
+	mediaLevel.Fmt = make([]string, 0)
+	mediaLevel.BandWidths = make([]*Bandwidth, 0)
+	mediaLevel.Attribute = make([]*Attribute, 0)
+	return mediaLevel
+}
 
-	lines := strings.Split(sdpbuf, "\r\n")
+//Attributes key
+const (
+	AttrCat       = "cat"      //category
+	AttrKeywds    = "keywds"   //keywords
+	AttrTool      = "tool"     //name and version of tool
+	AttrPtime     = "ptime"    //audio pkt length in mill
+	AttrMaxptime  = "maxptime" //max packet time in mill
+	AttrRtpmap    = "rtpmap"   //<payload type> <encoding name>/<clock rate> [/<encoding parameters>]
+	AttrRecvonly  = "recvonly"
+	AttrSendRecv  = "sendrecv"
+	AttrSendOnly  = "sendoly"
+	AttrInactive  = "inactive"
+	AttrType      = "type" //<conference type>Suggested values are "broadcast", "meeting", "moderated", "test", and "H332"
+	AttrCharset   = "charset"
+	AttrSdplang   = "sdplang"
+	AttrLang      = "lang"
+	AttrFramerate = "framerate" //max video frame /sec
+	AttrQuality   = "quality"   //0-10  10is best
+	AttrFmtp      = "fmtp"
+)
+
+//RTPMAP ...
+type RTPMAP struct {
+	PayloadType        string
+	EncodingName       string
+	ClockRate          uint32
+	EncodingParameters *string
+}
+
+//ParseSDP ... parse a sdp string
+func ParseSDP(sdpPayload string) (sdp *SessionDescription, err error) {
+	lines := strings.Split(sdpPayload, "\r\n")
 	if len(lines) < 3 {
 		err = errors.New("a sdp need at least v o s")
 		return
 	}
+	sdp = NewSDP()
 
-	sdp = &SessionDescription{}
-
-	hasVersion := false
-	hasOirgin := false
-	hasSession := false
-
-	var currentMediaDesc *MediaDescription
-	currentMediaDesc = nil
-
-	for _, line := range lines {
+	var curMediaLevel *MediaLevel
+	for index, line := range lines {
 		line = strings.TrimSuffix(line, "\r\n")
-		//end
 		if len(line) == 0 {
 			break
 		}
 		if len(line) < 3 || !(line[0] >= 'a' && line[0] <= 'z') || line[1] != '=' {
-
-			err = errors.New(fmt.Sprintf("bad sdp line %s", line))
-			return
+			err = fmt.Errorf("invalid sdp line %s", line)
+			continue
 		}
-		lineType := line[0]
-		switch lineType {
-		case 'v':
-			if hasVersion {
-				err = errors.New("a sdp only one version")
-				return
-			} else {
-				sdp.ProtocolVersion, err = strconv.Atoi(line[2:])
-				if err != nil {
-					return
-				}
-				if sdp.ProtocolVersion != 0 {
-					err = errors.New("sdp version only support 0 now")
-					return
-				}
-				hasVersion = true
-			}
-		case 'o':
-			if hasOirgin {
-				err = errors.New("a sdp only one Origin")
-				return
-			} else {
-				err = sdp.Origin.Init(line)
-				if err != nil {
-					return
-				}
-				hasOirgin = true
-			}
-		case 's':
-			if hasSession {
-				err = errors.New("a sdp only one session name")
-			} else {
-				sdp.SessionName = line[2:]
-				hasSession = true
-			}
-		case 'u':
-			if currentMediaDesc != nil {
-				err = errors.New("a sdp URI must before media desc")
-				return
-			}
-			if sdp.URI == nil {
-				sdp.URI = new(string)
-				*sdp.URI = line[2:]
-			} else {
-				err = errors.New("a sdp can only one URI")
-				return
-			}
-		case 'e':
-			if currentMediaDesc != nil {
-				err = errors.New("a email must before media desc")
-				return
-			}
-			if sdp.EmailAddress == nil {
-				sdp.EmailAddress = new(string)
-				*sdp.EmailAddress = line[2:]
-			} else {
-				err = errors.New("a sdp can only one email")
-				return
-			}
-		case 'p':
-			if currentMediaDesc != nil {
-				err = errors.New("a phone must before media desc")
-				return
-			}
-			if sdp.PhoneNumber == nil {
-				sdp.PhoneNumber = new(string)
-				*sdp.PhoneNumber = line[2:]
-			} else {
-				err = errors.New("a sdp can only one phone")
-				return
-			}
-		case 'z':
-			zone, err := InitTimeZone(line)
-			if err != nil {
-				return nil, err
-			}
-			sdp.TimeZone = append(sdp.TimeZone, zone)
-		case 't':
-			strT := line[2:]
-			beginTendT := strings.Split(strT, " ")
-			if len(beginTendT) != 2 {
-				err = errors.New("")
-				return
-			}
-			sdp.Timing.StartTime, err = strconv.ParseUint(beginTendT[0], 10, 64)
-			if err != nil {
-				return
-			}
-			sdp.Timing.StopTime, err = strconv.ParseUint(beginTendT[0], 10, 64)
-			if err != nil {
-				return
-			}
-		case 'r':
-			rt, err := InitRepeatTimeFromLine(line)
-			if err != nil {
-				return nil, err
-			}
-			sdp.RepeatTimes = append(sdp.RepeatTimes, rt)
-		case 'm':
-			currentMediaDesc, err = InitMediaDescFromLine(line)
-			if err != nil {
-				return
-			}
-			sdp.MediaDescription = append(sdp.MediaDescription, currentMediaDesc)
-
-		case 'i':
-			if currentMediaDesc != nil {
-				currentMediaDesc.SessionInformation = new(string)
-				*currentMediaDesc.SessionInformation = line[2:]
-
-			} else {
-
-				*sdp.SessionInformation = line[2:]
-			}
-		case 'c':
-			if currentMediaDesc != nil {
-				currentMediaDesc.ConnectionData = &ConnectionData{}
-				err = currentMediaDesc.ConnectionData.Init(line)
-				if err != nil {
-					return
-				}
-			} else {
-				sdp.ConnectionData = &ConnectionData{}
-				err = sdp.ConnectionData.Init(line)
-				if err != nil {
-					return
-				}
-			}
-		case 'b':
-			if currentMediaDesc != nil {
-				bw, err := InitBandWidthFromLine(line)
+		if index == 0 {
+			if line[0] == 'v' {
+				version, err := strconv.Atoi(line[2:])
 				if err != nil {
 					return nil, err
 				}
-				currentMediaDesc.BandWidth = append(currentMediaDesc.BandWidth, bw)
+				sdp.ProtocolVersion = new(int)
+				*sdp.ProtocolVersion = version
 			} else {
-				bw, err := InitBandWidthFromLine(line)
-				if err != nil {
-					return nil, err
-				}
-				sdp.BandWidth = make([]*BandWidth, 0)
-				sdp.BandWidth = append(sdp.BandWidth, bw)
-			}
-		case 'k':
-			//todo 只能用第一个分割
-			subKs := strings.Split(line[2:], ":")
-			if len(subKs) == 0 || len(subKs) > 2 {
-				err = errors.New("invalid encryption keys")
-				return
-			}
-			key := &EncryptionKey{}
-			key.Method = subKs[0]
-			if len(subKs) == 2 {
-				key.EncryptionKey = subKs[1]
-			}
-			if currentMediaDesc != nil {
-				currentMediaDesc.EncryptionKeys = key
-			} else {
-				sdp.EncryptionKeys = key
+				return nil, errors.New("first line not v=")
 			}
 
-		case 'a':
-			//todo 只能用第一个分割
-			subAttrs := strings.Split(line[2:], ":")
-			if len(subAttrs) == 0 || len(subAttrs) > 2 {
-				err = errors.New("invalid attributes keys")
-				return
-			}
-			attr := &Attribute{}
-			attr.Attribute = subAttrs[0]
-			if len(subAttrs) == 2 {
-				attr.Value = subAttrs[1]
-			}
-			if currentMediaDesc != nil {
-				currentMediaDesc.Attributes = append(currentMediaDesc.Attributes, attr)
-			} else {
-				sdp.Attributes = append(sdp.Attributes, attr)
+		} else {
+			key := line[0]
+			switch key {
+			case 'o':
+				if sdp.Origin == nil {
+					values := strings.Split(line[2:], " ")
+					if len(values) != 6 {
+						return nil, fmt.Errorf("invalid o= %s", line[2:])
+					}
+					sdp.Origin = &Origin{
+						Username:       values[0],
+						SessionID:      values[1],
+						SessionVersion: values[2],
+						Nettype:        values[3],
+						Addrtype:       values[4],
+						UnicastAddress: values[5],
+					}
+				} else {
+					return nil, errors.New("a sdp at most one origin o=")
+				}
+			case 's':
+				if sdp.SessionName == nil {
+					sdp.SessionName = new(string)
+					*sdp.SessionName = line[2:]
+				} else {
+					return nil, errors.New("a sdp at most one session name s=")
+				}
+			case 'u':
+				if curMediaLevel == nil {
+					if sdp.URI == nil {
+						sdp.URI = new(string)
+						*sdp.URI = line[2:]
+					} else {
+						return nil, errors.New("a sdp at most one URI")
+					}
+				} else {
+					return nil, errors.New("URI must before media")
+				}
+			case 'e':
+				if curMediaLevel == nil {
+					sdp.EmailAddress = append(sdp.EmailAddress, line[2:])
+				} else {
+					return nil, errors.New("email must before media")
+				}
+			case 'p':
+				if curMediaLevel == nil {
+					sdp.PhoneNumber = append(sdp.PhoneNumber, line[2:])
+				} else {
+					return nil, errors.New("email must before media")
+				}
+			case 't':
+				if sdp.Timing == nil {
+					values := strings.Split(line[2:], " ")
+					if len(values) != 2 {
+						log.Println(line)
+						continue
+					}
+					timing := &Timing{}
+					timing.StartTime, err = strconv.ParseUint(values[0], 10, 64)
+					if err != nil {
+						log.Println(err)
+						log.Println(line)
+						continue
+					}
+					timing.StopTime, err = strconv.ParseUint(values[1], 10, 64)
+					if err != nil {
+						log.Println(err)
+						log.Println(line)
+						continue
+					}
+					sdp.Timing = timing
+				} else {
+					return nil, errors.New("a sdp must one timing")
+				}
+			case 'r':
+				values := strings.Split(line[2:], " ")
+				if len(values) < 2 {
+					log.Println(line)
+					continue
+				}
+				repeatTime := NewRepeatTime()
+				repeatTime.RepeatInterval = values[0]
+				repeatTime.ActiveDuration = values[1]
+				for i := 2; i < len(values); i++ {
+					repeatTime.OffsetsFromStartTime = append(repeatTime.OffsetsFromStartTime, values[1])
+				}
+				sdp.RepeatTimes = append(sdp.RepeatTimes, repeatTime)
+			case 'z':
+				values := strings.Split(line[2:], " ")
+				if len(values) == 0 {
+					log.Println(line)
+					continue
+				}
+				if len(values)%2 != 0 {
+					log.Println(line)
+					continue
+				}
+				timezone := NewTimeZone()
+				for i := 0; i < len(values); i += 2 {
+					adjustment, err := strconv.ParseUint(values[i], 10, 64)
+					if err != nil {
+						log.Println(err)
+						log.Println(line)
+						continue
+					}
+					timezone.AdjustmentTime = append(timezone.AdjustmentTime, adjustment)
+					timezone.Offset = append(timezone.Offset, values[i+1])
+				}
+				sdp.TimeZones = append(sdp.TimeZones, timezone)
+			case 'm':
+				values := strings.Split(line[2:], " ")
+				if len(values) < 4 {
+					log.Println(line)
+					continue
+				}
+				mediaLevel := NewMediaLevel()
+				mediaLevel.Media = values[0]
+				pp := strings.Split(values[1], "/")
+				if len(pp) == 1 {
+					mediaLevel.Port, err = strconv.Atoi(pp[0])
+					if err != nil {
+						log.Println(err)
+						log.Println(line)
+						continue
+					}
+				} else if len(pp) == 2 {
+					mediaLevel.Port, err = strconv.Atoi(pp[0])
+					if err != nil {
+						log.Println(err)
+						log.Println(line)
+						continue
+					}
+					mediaLevel.NumberOfPorts = new(int)
+					*mediaLevel.NumberOfPorts, err = strconv.Atoi(pp[1])
+					if err != nil {
+						log.Println(err)
+						log.Println(line)
+						continue
+					}
+				} else {
+					log.Println(line)
+					continue
+				}
+
+				mediaLevel.Proto = values[2]
+				slice := values[3:]
+				mediaLevel.Fmt = append(mediaLevel.Fmt, slice...)
+				sdp.MediaDescriptions = append(sdp.MediaDescriptions, mediaLevel)
+				curMediaLevel = mediaLevel
+				//next keys both session level and media level use
+			case 'i':
+				if curMediaLevel != nil {
+					if curMediaLevel.SessionInformation == nil {
+						curMediaLevel.SessionInformation = new(string)
+						*curMediaLevel.SessionInformation = line[2:]
+					} else {
+						return nil, errors.New(" a media at most one per media")
+					}
+				} else {
+					if sdp.SessionInformation == nil {
+						sdp.SessionInformation = new(string)
+						*sdp.SessionInformation = line[2:]
+					} else {
+						return nil, errors.New("a sdp level at most one per session")
+					}
+				}
+			case 'c':
+				values := strings.Split(line[2:], " ")
+				if len(values) < 3 {
+					log.Println(line)
+					continue
+				}
+				connectionData := &ConnectionData{
+					Nettype:           values[0],
+					Addrtype:          values[1],
+					ConnectionAddress: values[2],
+				}
+				for i := 3; i < len(values); i++ {
+					connectionData.ConnectionAddress += values[i]
+				}
+
+				if curMediaLevel != nil {
+					if curMediaLevel.ConnectionData == nil {
+						curMediaLevel.ConnectionData = connectionData
+					} else {
+						return nil, errors.New("a media connection data at most one")
+					}
+				} else {
+					if sdp.ConnectionData == nil {
+						sdp.ConnectionData = connectionData
+					} else {
+						return nil, errors.New("a sdp connection data at most one")
+					}
+				}
+			case 'b':
+				values := strings.Split(line[2:], ":")
+				if len(values) != 2 {
+					log.Println(line)
+					continue
+				}
+				bandwidth := &Bandwidth{}
+
+				bandwidth.Bwtype = values[0]
+				bandwidth.BandwidthValue, err = strconv.ParseUint(values[1], 10, 64)
+				if err != nil {
+					log.Println(line)
+					continue
+				}
+				if curMediaLevel != nil {
+					curMediaLevel.BandWidths = append(curMediaLevel.BandWidths, bandwidth)
+				} else {
+					sdp.Bandwidths = append(sdp.Bandwidths, bandwidth)
+				}
+			case 'k':
+				values := strings.Split(line[2:], ":")
+				encryptionKey := &EncryptionKey{}
+
+				if len(values) == 0 {
+					log.Println(line)
+					continue
+				}
+				encryptionKey.Method = values[0]
+				if len(values) > 1 {
+					encryptionKey.EncryptionKey = new(string)
+					var key string
+					for i := 1; i < len(values); i++ {
+						key += values[i]
+					}
+					*encryptionKey.EncryptionKey = key
+				}
+
+				if curMediaLevel != nil {
+					if curMediaLevel.EncryptionKey == nil {
+						curMediaLevel.EncryptionKey = encryptionKey
+					} else {
+						return nil, errors.New("a media at most one encryption key")
+					}
+				} else {
+					if sdp.EncryptionKey == nil {
+						sdp.EncryptionKey = encryptionKey
+					} else {
+						return nil, errors.New("a sdp at most one encryption key")
+					}
+				}
+			case 'a':
+				values := strings.Split(line[2:], ":")
+				if len(values) == 0 {
+					log.Println(line)
+					continue
+				}
+
+				attribute := &Attribute{}
+				attribute.AttributeName = values[0]
+				if len(values) > 1 {
+					attribute.Value = new(string)
+
+					var attrValue string
+					for i := 1; i < len(values); i++ {
+						attrValue += values[i]
+					}
+					*attribute.Value = attrValue
+				}
+				if curMediaLevel != nil {
+					curMediaLevel.Attribute = append(curMediaLevel.Attribute, attribute)
+				} else {
+					sdp.Attributes = append(sdp.Attributes, attribute)
+				}
+
 			}
 		}
 	}
 
-	if !hasVersion || !hasOirgin || !hasSession {
-		return nil, errors.New("invalid sdp")
+	if sdp.Origin == nil {
+		return nil, errors.New("no origion o=")
+	}
+	if sdp.SessionName == nil {
+		return nil, errors.New("no session name s=")
+	}
+	if sdp.Timing == nil {
+		return nil, errors.New("no time the session is active t=")
 	}
 
 	return
