@@ -77,7 +77,7 @@ func (header *Header) Encode(buffer *bytes.Buffer) (err error) {
 		return
 	}
 
-	if header.CC > 16 || int(header.CC) != len(header.CSRC) {
+	if header.CC > 0xf || int(header.CC) != len(header.CSRC) {
 		err = fmt.Errorf("CSRC count %d ,CC %d", len(header.CSRC), int(header.CC))
 		log.Println(err)
 		return
