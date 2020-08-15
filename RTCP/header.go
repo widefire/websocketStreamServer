@@ -15,13 +15,11 @@ type PacketType uint8
 
 //RTCP packet types
 const (
-	TypeSendReport                PacketType = 200 // SR
-	TypeReceiverReport            PacketType = 201 // RR
-	TypeSourceDescription         PacketType = 202 // SDES
-	TypeGoodbye                   PacketType = 203 // BYE
-	TypeApplicationDefined        PacketType = 204 // APP
-	TypeTransportSpecificFeedback PacketType = 205 // RTPFB RFC 4585
-	TypePayloadSpecificFeedback   PacketType = 206 // PSFB RFC 4585
+	TypeSendReport         PacketType = 200 // SR
+	TypeReceiverReport     PacketType = 201 // RR
+	TypeSourceDescription  PacketType = 202 // SDES
+	TypeGoodbye            PacketType = 203 // BYE
+	TypeApplicationDefined PacketType = 204 // APP
 )
 
 //HeaderLength rtcp header length
@@ -93,13 +91,37 @@ func (header *Header) Decode(data []byte) (err error) {
 	}
 	return
 }
-todo
-func PadLength(pad []byte) int {
-	if len(pad) > 0 {
-		if len(pad)%4 == 0 {
-			return len(pad)
-		}
-	} else {
-		return 0
+
+func (header *Header) isEq(rh *Header) bool {
+	return header.Padding == rh.Padding &&
+		header.ReceptionReportCount == rh.ReceptionReportCount &&
+		header.PacketType == rh.PacketType &&
+		header.Length == rh.Length
+}
+
+func byteaIsEq(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
 	}
+	if len(a) == 0 {
+		return true
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+//PadLength get pad count
+func PadLength(extern []byte) int {
+	externLength := len(extern)
+	if externLength > 0 {
+		mod := externLength % 4
+		if mod != 0 {
+			return 4 - mod
+		}
+	}
+	return 0
 }

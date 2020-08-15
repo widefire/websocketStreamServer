@@ -136,6 +136,16 @@ func (rr *ReceptionReport) Decode(data []byte) (err error) {
 	return
 }
 
+func (rr *ReceptionReport) isEq(rh *ReceptionReport) bool {
+	return rr.SSRC == rh.SSRC &&
+		rr.FractionLost == rh.FractionLost &&
+		rr.CumulativeLost == rh.CumulativeLost &&
+		rr.ExtendedHighestSequenceNumber == rh.ExtendedHighestSequenceNumber &&
+		rr.Jitter == rh.Jitter &&
+		rr.LSR == rh.LSR &&
+		rr.DLSR == rh.DLSR
+}
+
 //Len length of ReceptionReport must 24
 func (rr *ReceptionReport) Len() int {
 	return ReceptionReportLength

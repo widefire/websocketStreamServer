@@ -23,10 +23,9 @@ func TestHeaderEncodeDecode(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if header.Padding != decHeader.Padding ||
-		header.ReceptionReportCount != decHeader.ReceptionReportCount ||
-		header.PacketType != decHeader.PacketType ||
-		header.Length != decHeader.Length {
+
+	if !header.isEq(decHeader) {
 		t.Fail()
 	}
+
 }

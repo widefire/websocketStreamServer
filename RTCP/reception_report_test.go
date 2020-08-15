@@ -26,13 +26,8 @@ func TestReceptionEncodeDecode(t *testing.T) {
 		t.Error(err)
 	}
 
-	if src.SSRC != dst.SSRC ||
-		src.FractionLost != dst.FractionLost ||
-		src.CumulativeLost != dst.CumulativeLost ||
-		src.ExtendedHighestSequenceNumber != dst.ExtendedHighestSequenceNumber ||
-		src.Jitter != dst.Jitter ||
-		src.LSR != dst.LSR ||
-		src.DLSR != dst.DLSR {
+	if !src.isEq(dst) {
 		t.Error("not eq")
 	}
+
 }
