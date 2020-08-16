@@ -15,7 +15,7 @@ type SenderReport struct {
 	RTPTime                   uint32
 	SendersPacketCount        uint32
 	SendersOctetCount         uint32
-	Reports                   []ReceptionReport
+	Reports                   []*ReceptionReport
 	ProfileSpecificExtensions []byte
 }
 
@@ -155,7 +155,7 @@ func (sr *SenderReport) isEq(rh *SenderReport) bool {
 		return false
 	}
 	for i := 0; i < len(sr.Reports); i++ {
-		if !sr.Reports[i].isEq(&rh.Reports[i]) {
+		if !sr.Reports[i].isEq(rh.Reports[i]) {
 			log.Fatalf("Reports %d not eq", i)
 			return false
 		}
@@ -172,10 +172,10 @@ func (sr *SenderReport) isEq(rh *SenderReport) bool {
 //Header generate this SenderReport's header
 func (sr *SenderReport) Header() (header *Header) {
 	return &Header{
-		Padding:              PadLength(sr.ProfileSpecificExtensions) > 0,
-		ReceptionReportCount: uint8(len(sr.Reports)),
-		PacketType:           TypeSendReport,
-		Length:               uint16(sr.Len()/4 - 1),
+		Padding:    PadLength(sr.ProfileSpecificExtensions) > 0,
+		Count:      uint8(len(sr.Reports)),
+		PacketType: TypeSendReport,
+		Length:     uint16(sr.Len()/4 - 1),
 	}
 }
 
@@ -225,10 +225,11 @@ func encodeExtensions(buffer *bytes.Buffer, extension []byte, padding bool) (err
 	return
 }
 
-func decodeReceptionReportAndExtension(data []byte, header *Header) (reports []ReceptionReport, profileSpecificExtensions []byte, err error) {
-	reports = make([]ReceptionReport, int(header.ReceptionReportCount))
+func decodeReceptionReportAndExtension(data []byte, header *Header) (reports []*ReceptionReport, profileSpecificExtensions []byte, err error) {
+	reports = make([]*ReceptionReport, int(header.Count))
 	cur := 0
-	for i := 0; i < int(header.ReceptionReportCount); i++ {
+	for i := 0; i < int(header.Count); i++ {
+		reports[i] = &ReceptionReport{}
 		err = reports[i].Decode(data[cur:])
 		if err != nil {
 			log.Println(err)

@@ -11,7 +11,7 @@ import (
 //ReceiverReport RR
 type ReceiverReport struct {
 	SSRC                      uint32
-	Reports                   []ReceptionReport
+	Reports                   []*ReceptionReport
 	ProfileSpecificExtensions []byte
 }
 
@@ -104,7 +104,7 @@ func (rr *ReceiverReport) isEq(rh *ReceiverReport) bool {
 		return false
 	}
 	for i := 0; i < len(rr.Reports); i++ {
-		if !rr.Reports[i].isEq(&rh.Reports[i]) {
+		if !rr.Reports[i].isEq(rh.Reports[i]) {
 			log.Fatalf("reports %d not eq", i)
 			return false
 		}
@@ -116,10 +116,10 @@ func (rr *ReceiverReport) isEq(rh *ReceiverReport) bool {
 //Header generate this ReciverReport's header
 func (rr *ReceiverReport) Header() (header *Header) {
 	return &Header{
-		Padding:              PadLength(rr.ProfileSpecificExtensions) > 0,
-		ReceptionReportCount: uint8(len(rr.Reports)),
-		PacketType:           TypeReceiverReport,
-		Length:               uint16(rr.Len()/4 - 1),
+		Padding:    PadLength(rr.ProfileSpecificExtensions) > 0,
+		Count:      uint8(len(rr.Reports)),
+		PacketType: TypeReceiverReport,
+		Length:     uint16(rr.Len()/4 - 1),
 	}
 }
 

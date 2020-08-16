@@ -13,8 +13,8 @@ func TestSenderReportEncodeDecode(t *testing.T) {
 		SendersPacketCount: 0x456,
 		SendersOctetCount:  0x567,
 	}
-	sr.Reports = make([]ReceptionReport, 2)
-	sr.Reports[0] = ReceptionReport{
+	sr.Reports = make([]*ReceptionReport, 2)
+	sr.Reports[0] = &ReceptionReport{
 		SSRC:                          1,
 		FractionLost:                  2,
 		CumulativeLost:                3,
@@ -23,7 +23,7 @@ func TestSenderReportEncodeDecode(t *testing.T) {
 		LSR:                           6,
 		DLSR:                          7,
 	}
-	sr.Reports[1] = ReceptionReport{
+	sr.Reports[1] = &ReceptionReport{
 		SSRC:                          1111,
 		FractionLost:                  2,
 		CumulativeLost:                3333,

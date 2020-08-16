@@ -7,10 +7,10 @@ import (
 
 func TestHeaderEncodeDecode(t *testing.T) {
 	header := &Header{
-		Padding:              true,
-		ReceptionReportCount: 12,
-		PacketType:           TypeSendReport,
-		Length:               0xfff,
+		Padding:    true,
+		Count:      12,
+		PacketType: TypeSendReport,
+		Length:     0xfff,
 	}
 	buf := new(bytes.Buffer)
 	err := header.Encode(buf)

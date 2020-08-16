@@ -27,16 +27,16 @@ const HeaderLength = 4
 
 //Header rtcp common header
 type Header struct {
-	Padding              bool
-	ReceptionReportCount uint8
-	PacketType           PacketType
-	Length               uint16
+	Padding    bool
+	Count      uint8
+	PacketType PacketType
+	Length     uint16
 }
 
 //Encode rtcp header
 func (header *Header) Encode(buffer *bytes.Buffer) (err error) {
-	if header.ReceptionReportCount > 0x1f {
-		err = fmt.Errorf("invalid reception report count %d", header.ReceptionReportCount)
+	if header.Count > 0x1f {
+		err = fmt.Errorf("invalid reception report count %d", header.Count)
 		log.Println(err)
 		return
 	}
@@ -45,7 +45,7 @@ func (header *Header) Encode(buffer *bytes.Buffer) (err error) {
 	if header.Padding {
 		b0 |= 0x20
 	}
-	b0 |= header.ReceptionReportCount
+	b0 |= header.Count
 	err = buffer.WriteByte(b0)
 	if err != nil {
 		log.Println(err)
@@ -81,7 +81,7 @@ func (header *Header) Decode(data []byte) (err error) {
 	}
 
 	header.Padding = (data[0] >> 5 & 0x1) != 0
-	header.ReceptionReportCount = data[0] & 0x1f
+	header.Count = data[0] & 0x1f
 	header.PacketType = PacketType(data[1])
 	reader := bytes.NewReader(data[2:])
 	err = binary.Read(reader, binary.BigEndian, &header.Length)
@@ -94,7 +94,7 @@ func (header *Header) Decode(data []byte) (err error) {
 
 func (header *Header) isEq(rh *Header) bool {
 	return header.Padding == rh.Padding &&
-		header.ReceptionReportCount == rh.ReceptionReportCount &&
+		header.Count == rh.Count &&
 		header.PacketType == rh.PacketType &&
 		header.Length == rh.Length
 }
@@ -117,8 +117,12 @@ func byteaIsEq(a, b []byte) bool {
 //PadLength get pad count
 func PadLength(extern []byte) int {
 	externLength := len(extern)
-	if externLength > 0 {
-		mod := externLength % 4
+	return padLengthByCount(externLength)
+}
+
+func padLengthByCount(count int) int {
+	if count > 0 {
+		mod := count % 4
 		if mod != 0 {
 			return 4 - mod
 		}
