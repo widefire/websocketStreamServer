@@ -9,13 +9,13 @@ import (
 )
 
 //GoodByte ...
-type GoodByte struct {
+type GoodBye struct {
 	SSCSRC           []uint32
 	ReasonForLeaving string
 }
 
 //Header GoodBye header
-func (gb *GoodByte) Header() (header *Header) {
+func (gb *GoodBye) Header() (header *Header) {
 
 	header = &Header{
 		Padding:    false,
@@ -27,7 +27,7 @@ func (gb *GoodByte) Header() (header *Header) {
 }
 
 //Len GoodBye length
-func (gb *GoodByte) Len() int {
+func (gb *GoodBye) Len() int {
 	length := HeaderLength
 	length += 4 * len(gb.SSCSRC)
 	bytes := []byte(gb.ReasonForLeaving)
@@ -40,7 +40,7 @@ func (gb *GoodByte) Len() int {
 }
 
 //Encode GoodBye
-func (gb *GoodByte) Encode(buffer *bytes.Buffer) (err error) {
+func (gb *GoodBye) Encode(buffer *bytes.Buffer) (err error) {
 	if len(gb.SSCSRC) > 0x1f {
 		err = fmt.Errorf("invalid reports count %d", len(gb.SSCSRC))
 		log.Println(err)
@@ -92,7 +92,7 @@ func (gb *GoodByte) Encode(buffer *bytes.Buffer) (err error) {
 }
 
 //Decode GoodBye
-func (gb *GoodByte) Decode(data []byte) (err error) {
+func (gb *GoodBye) Decode(data []byte) (err error) {
 
 	if 0 != len(data)%4 {
 		err = errors.New("not 32bit align")
@@ -145,7 +145,7 @@ func (gb *GoodByte) Decode(data []byte) (err error) {
 	return
 }
 
-func (gb *GoodByte) isEq(rh *GoodByte) bool {
+func (gb *GoodBye) isEq(rh *GoodBye) bool {
 	lheader := gb.Header()
 	rheader := rh.Header()
 	if !lheader.isEq(rheader) {

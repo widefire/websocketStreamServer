@@ -6,7 +6,7 @@ import (
 )
 
 func TestGoodbyeEncodeDecode(t *testing.T) {
-	src := &GoodByte{}
+	src := &GoodBye{}
 	src.SSCSRC = make([]uint32, 3)
 	src.SSCSRC[0] = 3
 	src.SSCSRC[1] = 6
@@ -18,7 +18,7 @@ func TestGoodbyeEncodeDecode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dst := &GoodByte{}
+	dst := &GoodBye{}
 	err = dst.Decode(buf.Bytes())
 	if err != nil {
 		t.Fatal(err)
