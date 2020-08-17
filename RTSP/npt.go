@@ -8,23 +8,27 @@ import (
 
 //Normal play time
 
+//IsNPT ...
 func IsNPT(line string) bool {
 	return strings.HasPrefix(line, "npt=")
 }
 
-type NPT_Time struct {
+//NptTime ...
+type NptTime struct {
 	HH          int
 	MM          int
 	SS          int
 	SSfractions int
 }
 
-type NPT_Range struct {
-	Begin *NPT_Time //nil for now
-	End   *NPT_Time //nil for no end
+//NptRange ...
+type NptRange struct {
+	Begin *NptTime //nil for now
+	End   *NptTime //nil for no end
 }
 
-func ParseNPT(line string) (err error, nptRange *NPT_Range) {
+//ParseNPT ...
+func ParseNPT(line string) (nptRange *NptRange, err error) {
 	if !IsNPT(line) {
 		err = errors.New("not npt")
 		return
@@ -47,19 +51,19 @@ func ParseNPT(line string) (err error, nptRange *NPT_Range) {
 		return
 	}
 
-	nptRange = &NPT_Range{}
+	nptRange = &NptRange{}
 
 	if subRanges[0] == "now" {
 		nptRange.Begin = nil
 	} else {
-		err, nptRange.Begin = parse_NPT_Time(subRanges[0])
+		nptRange.Begin, err = parseNptTime(subRanges[0])
 		if err != nil {
 			return
 		}
 	}
 
 	if len(subRanges[1]) > 0 {
-		err, nptRange.End = parse_NPT_Time(subRanges[1])
+		nptRange.End, err = parseNptTime(subRanges[1])
 		if err != nil {
 			return
 		}
@@ -68,7 +72,7 @@ func ParseNPT(line string) (err error, nptRange *NPT_Range) {
 	return
 }
 
-func parse_npt_sec(npttime string) (err error, sec, fraction int) {
+func parseNptSec(npttime string) (sec, fraction int, err error) {
 	dotCount := strings.Count(npttime, ".")
 	if dotCount == 0 {
 		sec, err = strconv.Atoi(npttime)
@@ -101,16 +105,16 @@ func parse_npt_sec(npttime string) (err error, sec, fraction int) {
 	return
 }
 
-func parse_NPT_Time(npttime string) (err error, nptTime *NPT_Time) {
+func parseNptTime(npttime string) (nptTime *NptTime, err error) {
 
 	hmsCount := strings.Count(npttime, ":")
 	if hmsCount == 0 {
 		//npt-sec
-		nptTime = &NPT_Time{}
-		err, nptTime.SS, nptTime.SSfractions = parse_npt_sec(npttime)
+		nptTime = &NptTime{}
+		nptTime.SS, nptTime.SSfractions, err = parseNptSec(npttime)
 	} else if hmsCount == 2 {
 		//npt-hhmmss
-		nptTime = &NPT_Time{}
+		nptTime = &NptTime{}
 		hhmmss := strings.Split(npttime, ":")
 		if len(hhmmss) != 3 {
 			err = errors.New("invalid hh mm ss")
@@ -132,7 +136,7 @@ func parse_NPT_Time(npttime string) (err error, nptTime *NPT_Time) {
 			err = errors.New("npt mm should 0-59")
 			return
 		}
-		err, nptTime.SS, nptTime.SSfractions = parse_npt_sec(hhmmss[2])
+		nptTime.SS, nptTime.SSfractions, err = parseNptSec(hhmmss[2])
 		if err != nil {
 			return
 		}

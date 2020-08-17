@@ -6,34 +6,40 @@ import (
 	"strings"
 )
 
-type UTC_Date struct {
+//UTCDate ...
+type UTCDate struct {
 	YYYY int
 	MM   int
 	DD   int
 }
 
-type UTC_Time struct {
+//UTCTime ...
+type UTCTime struct {
 	HH       int
 	MM       int
 	SS       int
 	Fraction int
 }
 
-type UTC_DateTime struct {
-	Date *UTC_Date
-	Time *UTC_Time
+//UTCDateTime ...
+type UTCDateTime struct {
+	Date *UTCDate
+	Time *UTCTime
 }
 
-type UTC_Range struct {
-	BeginDateTime *UTC_DateTime
-	EndDateTime   *UTC_DateTime
+//UTCRange ...
+type UTCRange struct {
+	BeginDateTime *UTCDateTime
+	EndDateTime   *UTCDateTime
 }
 
+//IsUTC ...
 func IsUTC(line string) bool {
 	return strings.HasPrefix(line, "clock=")
 }
 
-func ParseUTC(line string) (err error, dateTimeRange *UTC_Range) {
+//ParseUTC ...
+func ParseUTC(line string) (dateTimeRange *UTCRange, err error) {
 	if !IsUTC(line) {
 		err = errors.New("not valid absolute UTC time")
 		return
@@ -47,13 +53,13 @@ func ParseUTC(line string) (err error, dateTimeRange *UTC_Range) {
 		return
 	}
 
-	dateTimeRange = &UTC_Range{}
-	err, dateTimeRange.BeginDateTime = parseDateTime(times[0])
+	dateTimeRange = &UTCRange{}
+	dateTimeRange.BeginDateTime, err = parseDateTime(times[0])
 	if err != nil {
 		return
 	}
 	if len(times[1]) != 0 {
-		err, dateTimeRange.EndDateTime = parseDateTime(times[1])
+		dateTimeRange.EndDateTime, err = parseDateTime(times[1])
 		if err != nil {
 			return
 		}
@@ -62,7 +68,7 @@ func ParseUTC(line string) (err error, dateTimeRange *UTC_Range) {
 	return
 }
 
-func parseDateTime(strDateTime string) (err error, dateTime *UTC_DateTime) {
+func parseDateTime(strDateTime string) (dateTime *UTCDateTime, err error) {
 	if !strings.HasSuffix(strDateTime, "Z") {
 		err = errors.New("utc time need suffix Z")
 		return
@@ -83,8 +89,8 @@ func parseDateTime(strDateTime string) (err error, dateTime *UTC_DateTime) {
 		return
 	}
 
-	dateTime = &UTC_DateTime{}
-	dateTime.Date = &UTC_Date{}
+	dateTime = &UTCDateTime{}
+	dateTime.Date = &UTCDate{}
 	ymd, err := strconv.Atoi(ymdAndHms[0][0:8])
 	if err != nil {
 		return
@@ -111,7 +117,7 @@ func parseDateTime(strDateTime string) (err error, dateTime *UTC_DateTime) {
 			return
 		}
 
-		dateTime.Time = &UTC_Time{}
+		dateTime.Time = &UTCTime{}
 		hms := 0
 		hms, err = strconv.Atoi(strHms)
 		if err != nil {

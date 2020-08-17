@@ -8,7 +8,7 @@ import (
 	"log"
 )
 
-//GoodByte ...
+//GoodBye ...
 type GoodBye struct {
 	SSCSRC           []uint32
 	ReasonForLeaving string

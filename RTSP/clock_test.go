@@ -4,21 +4,20 @@ import (
 	"testing"
 )
 
-/*
-test smpte
-Examples:
-     smpte=10:12:33:20-
-     smpte=10:07:33-
-     smpte=10:07:00-10:07:33:05.01
-     smpte-25=10:07:00-10:07:33:05.01
-*/
+//test smpte
+//Examples:
+//smpte=10:12:33:20-
+//smpte=10:07:33-
+//smpte=10:07:00-10:07:33:05.01
+//smpte-25=10:07:00-10:07:33:05.01
+
 func TestCheckSMPTEOnlyFrom(t *testing.T) {
 	t1 := "smpte=10:12:33:20-"
 	if !IsSMPTE(t1) {
 		t.Error("check is smpte failed")
 	}
 
-	err, smpteRange := ParseSMPTE(t1)
+	smpteRange, err := ParseSMPTE(t1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -49,7 +48,7 @@ func TestCheckSMPTEFromTo(t *testing.T) {
 		t.Error("check is smpte failed")
 	}
 
-	err, smpteRange := ParseSMPTE(t1)
+	smpteRange, err := ParseSMPTE(t1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -82,7 +81,7 @@ func TestCheckSMPTEFromTo(t *testing.T) {
 func TestCheckNpt(t *testing.T) {
 	{
 		npt := "npt=123.45-125"
-		err, nptRange := ParseNPT(npt)
+		nptRange, err := ParseNPT(npt)
 		if err != nil {
 			t.Error(err)
 		}
@@ -93,7 +92,7 @@ func TestCheckNpt(t *testing.T) {
 	}
 	{
 		npt := "npt=12:05:35.3-"
-		err, nptRange := ParseNPT(npt)
+		nptRange, err := ParseNPT(npt)
 		if err != nil {
 			t.Error(err)
 		}
@@ -105,7 +104,7 @@ func TestCheckNpt(t *testing.T) {
 
 	{
 		npt := "npt=now-"
-		err, nptRange := ParseNPT(npt)
+		nptRange, err := ParseNPT(npt)
 		if err != nil {
 			t.Error(err)
 		}
@@ -118,7 +117,7 @@ func TestCheckNpt(t *testing.T) {
 
 //test utc
 func TestCheckClock(t *testing.T) {
-	err, utc := ParseUTC("clock=19961108T143720.25Z-19961108T143720Z")
+	utc, err := ParseUTC("clock=19961108T143720.25Z-19961108T143720Z")
 	if err != nil {
 		t.Error(err)
 		return

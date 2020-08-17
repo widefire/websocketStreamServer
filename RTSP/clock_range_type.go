@@ -1,11 +1,13 @@
 package rtsp
 
-type RTSP_RANGE_TYPE int32
+//RangeType ...
+type RangeType int32
 
+//All Range types
 const (
-	_ RTSP_RANGE_TYPE = iota
-	RTSP_RANGE_SMPTE
-	RTSP_RANGE_SMPTE_30_DROP
-	RTSP_RANGE_NPT
-	RTSP_RANGE_CLOCK
+	_ RangeType = iota
+	RangeSmpte
+	RangeSmpte30Drop
+	RangeNpt
+	RangeClock
 )

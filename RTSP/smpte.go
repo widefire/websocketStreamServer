@@ -14,10 +14,10 @@ smpte=10:07:00-10:07:33:05.01
 smpte-25=10:07:00-10:07:33:05.01
 */
 
-//! framte rate 107892 / hour ,every minute fast first 2 frame ,except 0,10,20,30,40,50 minute.
-const SMPTE_30_drop_frame_rate = 29.97
+//SMPTE20DropFrameRate  framte rate 107892 / hour ,every minute fast first 2 frame ,except 0,10,20,30,40,50 minute.
+const SMPTE20DropFrameRate = 29.97
 
-const smpte_prefix = "smpte"
+const smptePrefix = "smpte"
 
 var regType *regexp.Regexp
 var regInt *regexp.Regexp
@@ -31,8 +31,9 @@ func init() {
 	regNumber = regexp.MustCompile("[0-9]+")
 }
 
+//IsSMPTE ...
 func IsSMPTE(line string) bool {
-	if !strings.HasPrefix(line, smpte_prefix) {
+	if !strings.HasPrefix(line, smptePrefix) {
 		return false
 	}
 
@@ -50,7 +51,8 @@ func IsSMPTE(line string) bool {
 	return true
 }
 
-type Smpte_timestamp struct {
+//SmpteTimestamp ...
+type SmpteTimestamp struct {
 	Hours     int
 	Minutes   int
 	Seconds   int
@@ -58,14 +60,16 @@ type Smpte_timestamp struct {
 	Subframes int
 }
 
-type Smpte_Range struct {
+//SmpteRange ...
+type SmpteRange struct {
 	Drop      bool
 	FrameRate int
-	Begin     *Smpte_timestamp
-	End       *Smpte_timestamp
+	Begin     *SmpteTimestamp
+	End       *SmpteTimestamp
 }
 
-func ParseSMPTE(line string) (err error, smpteRange *Smpte_Range) {
+//ParseSMPTE ...
+func ParseSMPTE(line string) (smpteRange *SmpteRange, err error) {
 
 	if !IsSMPTE(line) {
 		err = errors.New("not smpte timestamp")
@@ -75,7 +79,7 @@ func ParseSMPTE(line string) (err error, smpteRange *Smpte_Range) {
 	eqIndex := strings.Index(line, "=")
 	hyphenIndex := strings.Index(line, "-")
 
-	smpteRange = &Smpte_Range{}
+	smpteRange = &SmpteRange{}
 
 	prefix := "smpte="
 	if hyphenIndex < eqIndex {
@@ -94,14 +98,14 @@ func ParseSMPTE(line string) (err error, smpteRange *Smpte_Range) {
 		smpteRange.Drop = true
 	}
 
-	from_to := strings.TrimPrefix(line, prefix)
+	fromTo := strings.TrimPrefix(line, prefix)
 
-	if len(from_to) == 0 {
+	if len(fromTo) == 0 {
 		err = errors.New("no time range")
 		return
 	}
 
-	fromToArr := strings.Split(from_to, "-")
+	fromToArr := strings.Split(fromTo, "-")
 	if len(fromToArr) != 2 {
 		err = errors.New("bad sampte range")
 		return
@@ -109,7 +113,7 @@ func ParseSMPTE(line string) (err error, smpteRange *Smpte_Range) {
 
 	//from
 	if len(fromToArr[0]) > 0 {
-		err, smpteRange.Begin = parseSampteRange(fromToArr[0])
+		smpteRange.Begin, err = parseSampteRange(fromToArr[0])
 		if err != nil {
 			return
 		}
@@ -119,7 +123,7 @@ func ParseSMPTE(line string) (err error, smpteRange *Smpte_Range) {
 	}
 	//to
 	if len(fromToArr[1]) > 0 {
-		err, smpteRange.End = parseSampteRange(fromToArr[1])
+		smpteRange.End, err = parseSampteRange(fromToArr[1])
 		if err != nil {
 			return
 		}
@@ -130,8 +134,8 @@ func ParseSMPTE(line string) (err error, smpteRange *Smpte_Range) {
 	return
 }
 
-func parseSampteRange(strRange string) (err error, ts *Smpte_timestamp) {
-	ts = &Smpte_timestamp{Hours: 0, Minutes: 0, Seconds: 0, Frames: 0, Subframes: 0}
+func parseSampteRange(strRange string) (ts *SmpteTimestamp, err error) {
+	ts = &SmpteTimestamp{Hours: 0, Minutes: 0, Seconds: 0, Frames: 0, Subframes: 0}
 
 	subValues := strings.Split(strRange, ":")
 
@@ -163,28 +167,28 @@ func parseSampteRange(strRange string) (err error, ts *Smpte_timestamp) {
 	}
 
 	if c == 4 && len(subValues[3]) > 0 {
-		frame_subFrame := regNumber.FindAllString(subValues[3], -1)
-		count_frame_subFrame := len(frame_subFrame)
-		if count_frame_subFrame == 0 || count_frame_subFrame > 2 {
+		frameSubFrame := regNumber.FindAllString(subValues[3], -1)
+		countFrameSubFrame := len(frameSubFrame)
+		if countFrameSubFrame == 0 || countFrameSubFrame > 2 {
 			err = errors.New("smpte range invalid frame subframe")
 			return
 		}
-		if count_frame_subFrame > 0 {
-			if len(frame_subFrame[0]) < 2 {
+		if countFrameSubFrame > 0 {
+			if len(frameSubFrame[0]) < 2 {
 				err = errors.New("at least need two digit hour")
 				return
 			}
-			ts.Frames, err = strconv.Atoi(frame_subFrame[0])
+			ts.Frames, err = strconv.Atoi(frameSubFrame[0])
 			if err != nil {
 				return
 			}
 		}
-		if count_frame_subFrame > 1 {
-			if len(frame_subFrame[1]) != 2 {
+		if countFrameSubFrame > 1 {
+			if len(frameSubFrame[1]) != 2 {
 				err = errors.New("need two digit")
 				return
 			}
-			ts.Subframes, err = strconv.Atoi(frame_subFrame[1])
+			ts.Subframes, err = strconv.Atoi(frameSubFrame[1])
 			if err != nil {
 				return
 			}

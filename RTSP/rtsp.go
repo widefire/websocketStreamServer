@@ -1,127 +1,142 @@
 package rtsp
 
+import (
+	"errors"
+	"log"
+	"strings"
+)
+
 //method
 const (
 	//                                           direction       	object  requirement
-	RTSP_Method_DESCRIBE      = "DESCRIBE"      //C->S 				P,S		recommended
-	RTSP_Method_ANNOUNCE      = "ANNOUNCE"      //C->S, S->C		P,S		optional
-	RTSP_Method_GET_PARAMETER = "GET_PARAMETER" //C->S, S->C		P,S		optional
-	RTSP_Method_OPTIONS       = "OPTIONS"       //C->S, S->C		P,S		required (S->C: optional)
-	RTSP_Method_PAUSE         = "PAUSE"         //C->S				P,S		recommended
-	RTSP_Method_PLAY          = "PLAY"          //C->S				P,S		required
-	RTSP_Method_RECORD        = "RECORD"        //C->S				P,S		optional
-	RTSP_Method_REDIRECT      = "REDIRECT"      //S->C				P,S		optional
-	RTSP_Method_SETUP         = "SETUP"         //C->S				S		required
-	RTSP_Method_SET_PARAMETER = "PARAMETER"     //C->S, S->C		P,S		optional
-	RTSP_Method_SET_TEARDOWN  = "TEARDOWN"      //C->S				P,S		required
+	MethodDESCRIBE     = "DESCRIBE"      //C->S 				P,S		recommended
+	MethodANNOUNCE     = "ANNOUNCE"      //C->S, S->C		P,S		optional
+	MethodGetPARAMETER = "GET_PARAMETER" //C->S, S->C		P,S		optional
+	MethodOPTIONS      = "OPTIONS"       //C->S, S->C		P,S		required (S->C: optional)
+	MethodPAUSE        = "PAUSE"         //C->S				P,S		recommended
+	MethodPLAY         = "PLAY"          //C->S				P,S		required
+	MethodRECORD       = "RECORD"        //C->S				P,S		optional
+	MethodREDIRECT     = "REDIRECT"      //S->C				P,S		optional
+	MethodSETUP        = "SETUP"         //C->S				S		required
+	MethodSetPARAMETER = "PARAMETER"     //C->S, S->C		P,S		optional
+	MethodSetTEARDOWN  = "TEARDOWN"      //C->S				P,S		required
 
 )
 
 //status code
-
 const (
-	RTSP_Status_Continue                            int = 100
-	RTSP_Status_OK                                  int = 200
-	RTSP_Status_Created                             int = 201
-	RTSP_Status_Low_on_Storage_Space                int = 250
-	RTSP_Status_Multiple_Choices                    int = 300
-	RTSP_Status_Moved_Permanently                   int = 301
-	RTSP_Status_Moved_Temporarily                   int = 302
-	RTSP_Status_See_Other                           int = 303
-	RTSP_Status_Not_Modified                        int = 304
-	RTSP_Status_Use_Proxy                           int = 305
-	RTSP_Status_Bad_Request                         int = 400
-	RTSP_Status_Unauthorized                        int = 401
-	RTSP_Status_Payment_Required                    int = 402
-	RTSP_Status_Forbidden                           int = 403
-	RTSP_Status_Not_Found                           int = 404
-	RTSP_Status_Method_Not_Allowed                  int = 405
-	RTSP_Status_Not_Acceptable                      int = 406
-	RTSP_Status_Proxy_Authentication_Required       int = 407
-	RTSP_Status_Request_Time_out                    int = 408
-	RTSP_Status_Gone                                int = 410
-	RTSP_Status_Length_Required                     int = 411
-	RTSP_Status_Precondition_Faile                  int = 412
-	RTSP_Status_Request_Entity_Too_Large            int = 413
-	RTSP_Status_Request_URI_Too_Large               int = 414
-	RTSP_Status_Unsupported_Media_Type              int = 415
-	RTSP_Status_Parameter_Not_Understood            int = 451
-	RTSP_Status_Conference_Not_Found                int = 452
-	RTSP_Status_Not_Enough_Bandwidth                int = 453
-	RTSP_Status_Session_Not_Found                   int = 454
-	RTSP_Status_Method_Not_Valid_in_This_State      int = 455
-	RTSP_Status_Header_Field_Not_Valid_for_Resource int = 456
-	RTSP_Status_Invalid_Range                       int = 457
-	RTSP_Status_Parameter_Is_Read_Only              int = 458
-	RTSP_Status_Aggregate_operation_not_allowed     int = 459
-	RTSP_Status_Only_aggregate_operation_allowed    int = 460
-	RTSP_Status_Unsupported_transport               int = 461
-	RTSP_Status_Destination_unreachable             int = 462
-	RTSP_Status_Internal_Server_Error               int = 500
-	RTSP_Status_Not_Implemented                     int = 501
-	RTSP_Status_Bad_Gateway                         int = 502
-	RTSP_Status_Service_Unavailable                 int = 503
-	RTSP_Status_Gateway_Time_out                    int = 504
-	RTSP_Status_RTSP_Version_not_supported          int = 505
-	RTSP_Status_Option_not_supported                int = 551
+	StatusContinue                       int = 100
+	StatusOK                             int = 200
+	StatusCreated                        int = 201
+	StatusLowOnStorageSpace              int = 250
+	StatusMultipleChoices                int = 300
+	StatusMovedPermanently               int = 301
+	StatusMovedTemporarily               int = 302
+	StatusSeeOther                       int = 303
+	StatusNotModified                    int = 304
+	StatusUseProxy                       int = 305
+	StatusBadRequest                     int = 400
+	StatusUnauthorized                   int = 401
+	StatusPaymentRequired                int = 402
+	StatusForbidden                      int = 403
+	StatusNotFound                       int = 404
+	StatusMethodNotAllowed               int = 405
+	StatusNotAcceptable                  int = 406
+	StatusProxyAuthenticationRequired    int = 407
+	StatusRequestTimeout                 int = 408
+	StatusGone                           int = 410
+	StatusLengthRequired                 int = 411
+	StatusPreconditionFaile              int = 412
+	StatusRequestEntityTooLarge          int = 413
+	StatusRequestURITooLarge             int = 414
+	StatusUnsupportedMediaType           int = 415
+	StatusParameterNotUnderstood         int = 451
+	StatusConferenceNotFound             int = 452
+	StatusNotEnoughBandwidth             int = 453
+	StatusSessionNotFound                int = 454
+	StatusMethodNotValidInThisState      int = 455
+	StatusHeaderFieldNotValidForResource int = 456
+	StatusInvalidRange                   int = 457
+	StatusParameterIsReadOnly            int = 458
+	StatusAggregateOperationNotAllowed   int = 459
+	StatusOnlyAggregateOperationAllowed  int = 460
+	StatusUnsupportedTransport           int = 461
+	StatusDestinationUnreachable         int = 462
+	StatusInternalServerError            int = 500
+	StatusNotImplemented                 int = 501
+	StatusBadGateway                     int = 502
+	StatusServiceUnavailable             int = 503
+	StatusGatewayTimeout                 int = 504
+	StatusRTSPVersionNotSupported        int = 505
+	StatusOptionNotSupported             int = 551
 )
 
 var statusCodeDescMap map[int]string
 
 func init() {
 	statusCodeDescMap = make(map[int]string)
-	statusCodeDescMap[RTSP_Status_Continue] = "Continue"
-	statusCodeDescMap[RTSP_Status_OK] = "OK"
-	statusCodeDescMap[RTSP_Status_Created] = "Created"
-	statusCodeDescMap[RTSP_Status_Low_on_Storage_Space] = "Low on Storage Space"
-	statusCodeDescMap[RTSP_Status_Multiple_Choices] = "Multiple Choices"
-	statusCodeDescMap[RTSP_Status_Moved_Permanently] = "Moved Permanently"
-	statusCodeDescMap[RTSP_Status_Moved_Temporarily] = "Moved Temporarily"
-	statusCodeDescMap[RTSP_Status_See_Other] = "See Other"
-	statusCodeDescMap[RTSP_Status_Not_Modified] = "Not Modified"
-	statusCodeDescMap[RTSP_Status_Use_Proxy] = "Use Proxy"
-	statusCodeDescMap[RTSP_Status_Bad_Request] = "Bad Request"
-	statusCodeDescMap[RTSP_Status_Unauthorized] = "Unauthorized"
-	statusCodeDescMap[RTSP_Status_Payment_Required] = "Payment Required"
-	statusCodeDescMap[RTSP_Status_Forbidden] = "Forbidden"
-	statusCodeDescMap[RTSP_Status_Not_Found] = "Not Found"
-	statusCodeDescMap[RTSP_Status_Method_Not_Allowed] = "Method Not Allowed"
-	statusCodeDescMap[RTSP_Status_Not_Acceptable] = "Not Acceptable"
-	statusCodeDescMap[RTSP_Status_Proxy_Authentication_Required] = "Proxy Authentication Required"
-	statusCodeDescMap[RTSP_Status_Request_Time_out] = "Request Timeout"
-	statusCodeDescMap[RTSP_Status_Gone] = "Gone"
-	statusCodeDescMap[RTSP_Status_Length_Required] = "Length Required"
-	statusCodeDescMap[RTSP_Status_Precondition_Faile] = "Precondition Failed"
-	statusCodeDescMap[RTSP_Status_Request_Entity_Too_Large] = "Request Entity Too Large"
-	statusCodeDescMap[RTSP_Status_Request_URI_Too_Large] = "Request-URI Too Long"
-	statusCodeDescMap[RTSP_Status_Unsupported_Media_Type] = "Unsupported Media Type"
-	statusCodeDescMap[RTSP_Status_Parameter_Not_Understood] = "Invalid parameter"
-	statusCodeDescMap[RTSP_Status_Conference_Not_Found] = "Illegal Conference Identifier"
-	statusCodeDescMap[RTSP_Status_Not_Enough_Bandwidth] = "Not Enough Bandwidth"
-	statusCodeDescMap[RTSP_Status_Session_Not_Found] = "Session Not Found"
-	statusCodeDescMap[RTSP_Status_Method_Not_Valid_in_This_State] = "Method Not Valid In This State"
-	statusCodeDescMap[RTSP_Status_Header_Field_Not_Valid_for_Resource] = "Header Field Not Valid"
-	statusCodeDescMap[RTSP_Status_Invalid_Range] = "Invalid Range"
-	statusCodeDescMap[RTSP_Status_Parameter_Is_Read_Only] = "Parameter Is Read-Only"
-	statusCodeDescMap[RTSP_Status_Aggregate_operation_not_allowed] = "Aggregate Operation Not Allowed"
-	statusCodeDescMap[RTSP_Status_Only_aggregate_operation_allowed] = "Only Aggregate Operation Allowed"
-	statusCodeDescMap[RTSP_Status_Unsupported_transport] = "Unsupported Transport"
-	statusCodeDescMap[RTSP_Status_Destination_unreachable] = "Destination Unreachable"
-	statusCodeDescMap[RTSP_Status_Internal_Server_Error] = "Internal Server Error"
-	statusCodeDescMap[RTSP_Status_Not_Implemented] = "Not Implemented"
-	statusCodeDescMap[RTSP_Status_Bad_Gateway] = "Bad Gateway"
-	statusCodeDescMap[RTSP_Status_Service_Unavailable] = "Service Unavailable"
-	statusCodeDescMap[RTSP_Status_Gateway_Time_out] = "Gateway Timeout"
-	statusCodeDescMap[RTSP_Status_RTSP_Version_not_supported] = "RTSP Version Not Supported"
-	statusCodeDescMap[RTSP_Status_Option_not_supported] = "Option not support"
+	statusCodeDescMap[StatusContinue] = "Continue"
+	statusCodeDescMap[StatusOK] = "OK"
+	statusCodeDescMap[StatusCreated] = "Created"
+	statusCodeDescMap[StatusLowOnStorageSpace] = "Low on Storage Space"
+	statusCodeDescMap[StatusMultipleChoices] = "Multiple Choices"
+	statusCodeDescMap[StatusMovedPermanently] = "Moved Permanently"
+	statusCodeDescMap[StatusMovedTemporarily] = "Moved Temporarily"
+	statusCodeDescMap[StatusSeeOther] = "See Other"
+	statusCodeDescMap[StatusNotModified] = "Not Modified"
+	statusCodeDescMap[StatusUseProxy] = "Use Proxy"
+	statusCodeDescMap[StatusBadRequest] = "Bad Request"
+	statusCodeDescMap[StatusUnauthorized] = "Unauthorized"
+	statusCodeDescMap[StatusPaymentRequired] = "Payment Required"
+	statusCodeDescMap[StatusForbidden] = "Forbidden"
+	statusCodeDescMap[StatusNotFound] = "Not Found"
+	statusCodeDescMap[StatusMethodNotAllowed] = "Method Not Allowed"
+	statusCodeDescMap[StatusNotAcceptable] = "Not Acceptable"
+	statusCodeDescMap[StatusProxyAuthenticationRequired] = "Proxy Authentication Required"
+	statusCodeDescMap[StatusRequestTimeout] = "Request Timeout"
+	statusCodeDescMap[StatusGone] = "Gone"
+	statusCodeDescMap[StatusLengthRequired] = "Length Required"
+	statusCodeDescMap[StatusPreconditionFaile] = "Precondition Failed"
+	statusCodeDescMap[StatusRequestEntityTooLarge] = "Request Entity Too Large"
+	statusCodeDescMap[StatusRequestURITooLarge] = "Request-URI Too Long"
+	statusCodeDescMap[StatusUnsupportedMediaType] = "Unsupported Media Type"
+	statusCodeDescMap[StatusParameterNotUnderstood] = "Invalid parameter"
+	statusCodeDescMap[StatusConferenceNotFound] = "Illegal Conference Identifier"
+	statusCodeDescMap[StatusNotEnoughBandwidth] = "Not Enough Bandwidth"
+	statusCodeDescMap[StatusSessionNotFound] = "Session Not Found"
+	statusCodeDescMap[StatusMethodNotValidInThisState] = "Method Not Valid In This State"
+	statusCodeDescMap[StatusHeaderFieldNotValidForResource] = "Header Field Not Valid"
+	statusCodeDescMap[StatusInvalidRange] = "Invalid Range"
+	statusCodeDescMap[StatusParameterIsReadOnly] = "Parameter Is Read-Only"
+	statusCodeDescMap[StatusAggregateOperationNotAllowed] = "Aggregate Operation Not Allowed"
+	statusCodeDescMap[StatusOnlyAggregateOperationAllowed] = "Only Aggregate Operation Allowed"
+	statusCodeDescMap[StatusUnsupportedTransport] = "Unsupported Transport"
+	statusCodeDescMap[StatusDestinationUnreachable] = "Destination Unreachable"
+	statusCodeDescMap[StatusInternalServerError] = "Internal Server Error"
+	statusCodeDescMap[StatusNotImplemented] = "Not Implemented"
+	statusCodeDescMap[StatusBadGateway] = "Bad Gateway"
+	statusCodeDescMap[StatusServiceUnavailable] = "Service Unavailable"
+	statusCodeDescMap[StatusGatewayTimeout] = "Gateway Timeout"
+	statusCodeDescMap[StatusRTSPVersionNotSupported] = "RTSP Version Not Supported"
+	statusCodeDescMap[StatusOptionNotSupported] = "Option not support"
 }
 
-/* !
-\param statusCode : RTSP status code
-\return desc :RTSP status desc
-\return ok :true for ok,false for not default status
-*/
+// GetRTSPStatusDesc ...
+// param statusCode : RTSP status code
+// return desc :RTSP status desc
+// return ok :true for ok,false for not default status
 func GetRTSPStatusDesc(statusCode int) (desc string, ok bool) {
 	desc, ok = statusCodeDescMap[statusCode]
+	return
+}
+
+func parseURL(url string) (addr string, path string, err error) {
+	if !strings.HasPrefix(url, "rtsp://") {
+		err = errors.New("a rtsp url must start with rtsp://")
+		log.Println(err)
+		return
+	}
+	urlpayload := strings.TrimPrefix(url, "rtsp://")
+	log.Println(urlpayload)
 	return
 }
