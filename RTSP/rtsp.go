@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -22,6 +23,9 @@ const RTSPEndl = "\r\n"
 
 //RTSPCSeq ...
 const RTSPCSeq = "CSeq"
+
+//MaxRtspBodyLen ...
+const MaxRtspBodyLen = 1024 * 1024 * 10
 
 //method
 const (
@@ -188,13 +192,18 @@ func NewRequest(method string, urlIn *url.URL, header http.Header, body []byte) 
 //String Request to string
 func (r Request) String() string {
 	ret := fmt.Sprintf("%s %s %s%s", MethodOPTIONS, r.URL.String(), RTSPVeraion1, RTSPEndl)
+	if len(r.Body) > 0 {
+		r.Header.Set("Content-Length", strconv.Itoa(len(r.Body)))
+	}
 	for k, v := range r.Header {
 		for _, v := range v {
 			ret += fmt.Sprintf("%s: %s%s", k, v, RTSPEndl)
 		}
 	}
+
 	ret += RTSPEndl
 	if len(r.Body) > 0 {
+
 		ret += string(r.Body)
 	}
 	return ret
@@ -205,25 +214,110 @@ type Response struct {
 	Version    string
 	StatusCode int
 	StatusDesc string
-	Cseq       int
+	CSeq       int
 	Header     http.Header
 	Body       []byte
 }
 
+//String Response to string
+func (r Response) String() string {
+	ret := fmt.Sprintf("%s %d %s%s", r.Version, r.StatusCode, r.StatusDesc, RTSPEndl)
+	if len(r.Body) > 0 {
+		r.Header.Set("Content-Length", strconv.Itoa(len(r.Body)))
+	}
+	for k, v := range r.Header {
+		for _, sv := range v {
+			ret += fmt.Sprintf("%s: %s%s", k, sv, RTSPEndl)
+		}
+	}
+	ret += RTSPEndl
+	if len(r.Body) > 0 {
+		ret += string(r.Body)
+	}
+	return ret
+}
+
 //ReadResponse ...
 func ReadResponse(r io.Reader) (response *Response, err error) {
+	response = &Response{
+		Header: http.Header{},
+		Body:   make([]byte, 0),
+	}
 	reader := bufio.NewReader(r)
-	firstLine, err := readline(reader)
+	line, err := readline(reader)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	log.Println(firstLine)
+	subStr := strings.SplitN(line, " ", 3)
+	response.Version = subStr[0]
+	if response.Version != RTSPVeraion1 {
+		err = fmt.Errorf("invalid rtsp version %s", response.Version)
+		log.Println(err)
+		return
+	}
+	response.StatusCode, err = strconv.Atoi(subStr[1])
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	response.StatusDesc = strings.TrimSpace(subStr[2])
+	for {
+		line, err = readline(reader)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		if len(line) == 0 {
+			break
+		}
+		subStr = strings.SplitN(line, ":", 2)
+		response.Header.Add(strings.TrimSpace(subStr[0]), strings.TrimSpace(subStr[1]))
+	}
+
+	response.CSeq, err = strconv.Atoi(response.Header.Get("CSeq"))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	strContentLength := response.Header.Get("Content-Length")
+	if len(strContentLength) == 0 {
+		return
+	}
+	contentLength, err := strconv.Atoi(strContentLength)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	if contentLength > MaxRtspBodyLen {
+		err = fmt.Errorf("Content-Length: %d => too big", contentLength)
+		log.Println(err)
+		return
+	}
+	if contentLength < 0 {
+		err = fmt.Errorf("Content-Length: %d => too small", contentLength)
+		log.Println(err)
+		return
+	}
+
+	if contentLength == 0 {
+		log.Printf("Content-Length: %d => zero?", contentLength)
+		return
+	}
+
+	response.Body, err = readbytes(reader, contentLength)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	return
 }
 
 func readline(reader *bufio.Reader) (string, error) {
-	l, err := reader.ReadString("\n")
+	l, err := reader.ReadString('\n')
 	if err != nil {
 		log.Println(err)
 		return l, err
@@ -233,4 +327,27 @@ func readline(reader *bufio.Reader) (string, error) {
 		return l, nil
 	}
 	return l, errors.New("invalid line end")
+}
+
+func readbytes(reader *bufio.Reader, count int) (buf []byte, err error) {
+	if count < 0 {
+		err = fmt.Errorf("read %d ", count)
+		return
+	}
+	buf = make([]byte, count)
+	if count == 0 {
+		return
+	}
+
+	cur := 0
+	for cur < count {
+		n := 0
+		n, err = reader.Read(buf[cur:])
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		cur += n
+	}
+	return
 }
