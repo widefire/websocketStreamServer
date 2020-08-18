@@ -1,12 +1,25 @@
 package rtsp
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+)
 
 func TestRTSPClient(t *testing.T) {
-	client := &Client{
-		url: "rtsp://192.168.2.103/test.h264",
+	/*
+		urls:
+		rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov
+	*/
+	client := NewClient()
+	err := client.Dial("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov")
+	if err != nil {
+		t.Fatal(err)
 	}
-	err := client.Dial()
+
+	optionHeader := http.Header{}
+	optionHeader.Add("Require", "implicit-play")
+	optionHeader.Add("Proxy-Require", "gzipped-messages")
+	err = client.SendOptions(optionHeader)
 	if err != nil {
 		t.Fatal(err)
 	}

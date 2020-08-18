@@ -1,10 +1,27 @@
 package rtsp
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"strings"
 )
+
+//DefaultPort RTSP default port
+const DefaultPort = 554
+
+//RTSPVeraion1 ...
+const RTSPVeraion1 = "RTSP/1.0"
+
+//RTSPEndl ...
+const RTSPEndl = "\r\n"
+
+//RTSPCSeq ...
+const RTSPCSeq = "CSeq"
 
 //method
 const (
@@ -130,13 +147,90 @@ func GetRTSPStatusDesc(statusCode int) (desc string, ok bool) {
 	return
 }
 
-func parseURL(url string) (addr string, path string, err error) {
-	if !strings.HasPrefix(url, "rtsp://") {
-		err = errors.New("a rtsp url must start with rtsp://")
+func parseURL(rawURL string) (u *url.URL, err error) {
+	u, err = url.Parse(rawURL)
+	if err != nil {
 		log.Println(err)
 		return
 	}
-	urlpayload := strings.TrimPrefix(url, "rtsp://")
-	log.Println(urlpayload)
+	if u.Scheme != "rtsp" {
+		err = fmt.Errorf("invalid rtsp url:%s", u.Scheme)
+		log.Println(err)
+		return
+	}
+
+	port := u.Port()
+	if len(port) == 0 {
+		u.Host = fmt.Sprintf("%s:%d", u.Host, DefaultPort)
+	}
 	return
+}
+
+//Request RTSP request
+//https://github.com/beatgammit/rtsp/blob/master/rtsp.go
+type Request struct {
+	Method string
+	URL    *url.URL
+	Header http.Header
+	Body   []byte
+}
+
+//NewRequest ...
+func NewRequest(method string, urlIn *url.URL, header http.Header, body []byte) *Request {
+	return &Request{
+		Method: method,
+		URL:    urlIn,
+		Header: header,
+		Body:   body,
+	}
+}
+
+//String Request to string
+func (r Request) String() string {
+	ret := fmt.Sprintf("%s %s %s%s", MethodOPTIONS, r.URL.String(), RTSPVeraion1, RTSPEndl)
+	for k, v := range r.Header {
+		for _, v := range v {
+			ret += fmt.Sprintf("%s: %s%s", k, v, RTSPEndl)
+		}
+	}
+	ret += RTSPEndl
+	if len(r.Body) > 0 {
+		ret += string(r.Body)
+	}
+	return ret
+}
+
+//Response RTSP response
+type Response struct {
+	Version    string
+	StatusCode int
+	StatusDesc string
+	Cseq       int
+	Header     http.Header
+	Body       []byte
+}
+
+//ReadResponse ...
+func ReadResponse(r io.Reader) (response *Response, err error) {
+	reader := bufio.NewReader(r)
+	firstLine, err := readline(reader)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	log.Println(firstLine)
+	return
+}
+
+func readline(reader *bufio.Reader) (string, error) {
+	l, err := reader.ReadString("\n")
+	if err != nil {
+		log.Println(err)
+		return l, err
+	}
+	if strings.HasSuffix(l, RTSPEndl) {
+		l = strings.TrimSuffix(l, RTSPEndl)
+		return l, nil
+	}
+	return l, errors.New("invalid line end")
 }
