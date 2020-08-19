@@ -1,7 +1,6 @@
 package rtsp
 
 import (
-	"log"
 	"net/http"
 	"testing"
 )
@@ -25,9 +24,9 @@ func TestRTSPClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := client.ReadResponse()
+	client.AddCSeq()
+	err = client.SendDescribe(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Println(resp)
 }

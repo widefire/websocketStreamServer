@@ -191,7 +191,7 @@ func NewRequest(method string, urlIn *url.URL, header http.Header, body []byte) 
 
 //String Request to string
 func (r Request) String() string {
-	ret := fmt.Sprintf("%s %s %s%s", MethodOPTIONS, r.URL.String(), RTSPVeraion1, RTSPEndl)
+	ret := fmt.Sprintf("%s %s %s%s", r.Method, r.URL.String(), RTSPVeraion1, RTSPEndl)
 	if len(r.Body) > 0 {
 		r.Header.Set("Content-Length", strconv.Itoa(len(r.Body)))
 	}
