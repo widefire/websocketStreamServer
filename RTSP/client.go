@@ -21,6 +21,8 @@ type Client struct {
 	userAgent          string
 	methods            map[string]bool
 	sessionDescription *sdp.SessionDescription
+	session            string
+	timeout            int
 }
 
 //NewClient create a rtsp client instance
@@ -28,6 +30,7 @@ func NewClient() (client *Client) {
 	client = &Client{
 		cseq:    1,
 		methods: make(map[string]bool),
+		timeout: 60,
 	}
 	return
 }
@@ -77,6 +80,34 @@ func (client *Client) prepareHeader(header http.Header) http.Header {
 	return ret
 }
 
+func (client *Client) checkResponse(response *Response) (err error) {
+
+	if response.StatusCode != StatusOK {
+		err = fmt.Errorf("%s", response.StatusDesc)
+		log.Println(err)
+		return
+	}
+	if response.CSeq != client.cseq {
+		err = fmt.Errorf("response cseq %d,clent cseq %d", response.CSeq, client.cseq)
+		log.Println(err)
+		return
+	}
+
+	return
+}
+
+//ReadResponse ...
+func (client *Client) ReadResponse() (response *Response, err error) {
+	response, err = ReadResponse(client.conn)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println(response)
+	return
+}
+
 //SendOptions send OPTION
 func (client *Client) SendOptions(header http.Header) (err error) {
 	header = client.prepareHeader(header)
@@ -91,7 +122,15 @@ func (client *Client) SendOptions(header http.Header) (err error) {
 	response, err := client.ReadResponse()
 	if err != nil {
 		log.Println(err)
+		return
 	}
+
+	err = client.checkResponse(response)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	methods := strings.Split(response.Header.Get("Public"), ", ")
 	client.methods = make(map[string]bool)
 	for _, m := range methods {
@@ -113,18 +152,24 @@ func (client *Client) SendDescribe(header http.Header) (err error) {
 	//support sdp only now
 	header.Set("Accept", "application/sdp")
 	request := NewRequest(MethodDESCRIBE, client.url, header, nil)
+	log.Println(request)
 	_, err = client.conn.Write([]byte(request.String()))
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	log.Println(request)
 
 	response, err := client.ReadResponse()
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println(response)
+
+	err = client.checkResponse(response)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	if len(response.Body) == 0 {
 		err = errors.New("response no body")
 		log.Println(err)
@@ -139,16 +184,65 @@ func (client *Client) SendDescribe(header http.Header) (err error) {
 	return
 }
 
-//ReadResponse ...
-func (client *Client) ReadResponse() (response *Response, err error) {
-	response, err = ReadResponse(client.conn)
+//SendSetup send setup
+func (client *Client) SendSetup(header http.Header, tryUDOFirst bool) (err error) {
+	if tryUDOFirst {
+		return client.setupUDP(header)
+	}
+	return client.setupTCP(header)
+}
+
+func (client *Client) setupUDP(header http.Header) (err error) {
+	log.Println("todo,try udp ")
+	return client.setupTCP(header)
+}
+
+func (client *Client) setupTCP(header http.Header) (err error) {
+	b, _ := client.methods[MethodSETUP]
+	if !b {
+		err = errors.New("not support SETUP")
+		log.Println(err)
+		return
+	}
+	header = client.prepareHeader(header)
+	header.Set("Transport", "RTP/AVP/TCP;interleaved=0-1")
+	request := NewRequest(MethodSETUP, client.url, header, nil)
+	log.Println(request)
+	_, err = client.conn.Write([]byte(request.String()))
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	if response.CSeq != client.cseq {
-		err = fmt.Errorf("CSeq error,get %d,local %d", response.CSeq, client.cseq)
+	response, err := client.ReadResponse()
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = client.checkResponse(response)
+	if err != nil {
+		log.Println(err)
 		return
 	}
+
+	sessionandtimeout := response.Header.Get("Session")
+	if len(sessionandtimeout) > 0 {
+		subs := strings.SplitN(sessionandtimeout, ";", 2)
+		client.session = subs[0]
+		if len(subs[1]) > 0 {
+			if strings.HasPrefix(subs[1], "timeout=") {
+				client.timeout, err = strconv.Atoi(strings.TrimPrefix(subs[1], "timeout="))
+				if err != nil {
+					log.Println(err)
+					//ignore
+					err = nil
+					return
+				}
+			} else {
+				log.Printf("%s invalid timeout \r\n", subs[1])
+
+			}
+		}
+	}
+
 	return
 }

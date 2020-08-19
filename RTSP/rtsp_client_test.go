@@ -9,10 +9,12 @@ func TestRTSPClient(t *testing.T) {
 	/*
 		urls:
 		rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov
-		rtsp://192.168.2.103/test
+		rtsp://192.168.2.103/111.aac
+		rtsp://192.168.2.103/lyf.264
 	*/
 	client := NewClient()
 	err := client.Dial("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov")
+	//err := client.Dial("rtsp://192.168.2.103/111.aac")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,6 +28,11 @@ func TestRTSPClient(t *testing.T) {
 	}
 	client.AddCSeq()
 	err = client.SendDescribe(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.AddCSeq()
+	err = client.SendSetup(nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
