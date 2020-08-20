@@ -1,6 +1,7 @@
 package rtsp
 
 import (
+	"log"
 	"net/http"
 	"testing"
 )
@@ -12,6 +13,7 @@ func TestRTSPClient(t *testing.T) {
 		rtsp://192.168.2.103/111.aac
 		rtsp://192.168.2.103/lyf.264
 	*/
+	log.SetFlags(log.Lshortfile | log.Ldate)
 	client := NewClient()
 	err := client.Dial("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov")
 	//err := client.Dial("rtsp://192.168.2.103/111.aac")
@@ -33,6 +35,15 @@ func TestRTSPClient(t *testing.T) {
 	}
 	client.AddCSeq()
 	err = client.SendSetup(nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.AddCSeq()
+	err = client.SendPlay(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = client.readTCPStream()
 	if err != nil {
 		t.Fatal(err)
 	}

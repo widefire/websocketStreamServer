@@ -1,6 +1,7 @@
 package rtsp
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"log"
@@ -23,6 +24,8 @@ type Client struct {
 	sessionDescription *sdp.SessionDescription
 	session            string
 	timeout            int
+	replyTransport     *Transport
+	replyRTPInfo       *RTPInfo
 }
 
 //NewClient create a rtsp client instance
@@ -98,7 +101,7 @@ func (client *Client) checkResponse(response *Response) (err error) {
 
 //ReadResponse ...
 func (client *Client) ReadResponse() (response *Response, err error) {
-	response, err = ReadResponse(client.conn)
+	response, err = ReadResponse(bufio.NewReader(client.conn))
 	if err != nil {
 		log.Println(err)
 		return
@@ -224,6 +227,7 @@ func (client *Client) setupTCP(header http.Header) (err error) {
 		return
 	}
 
+	//decode session
 	sessionandtimeout := response.Header.Get("Session")
 	if len(sessionandtimeout) > 0 {
 		subs := strings.SplitN(sessionandtimeout, ";", 2)
@@ -244,5 +248,89 @@ func (client *Client) setupTCP(header http.Header) (err error) {
 		}
 	}
 
+	client.replyTransport, err = ParseTransport(response.Header)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	if client.replyTransport == nil {
+		err = fmt.Errorf("setup response no transport")
+		log.Println(err)
+		return
+	}
+
+	return
+}
+
+//SendPlay send play
+func (client *Client) SendPlay(header http.Header) (err error) {
+	b, _ := client.methods[MethodPLAY]
+	if !b {
+		err = errors.New("not support PLAY")
+		log.Println(err)
+		return
+	}
+	header = client.prepareHeader(header)
+	request := NewRequest(MethodPLAY, client.url, header, nil)
+	log.Println(request)
+	_, err = client.conn.Write([]byte(request.String()))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	response, err := client.ReadResponse()
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = client.checkResponse(response)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	client.replyRTPInfo, err = ParseRTPInfo(response.Header)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	if client.replyRTPInfo == nil {
+		err = fmt.Errorf("no RTPInfo in Play response")
+		return
+	}
+
+	return
+}
+
+//readTCPStream  rtsp rtp rtcp all in tcp
+func (client *Client) readTCPStream() (err error) {
+	reader := bufio.NewReader(client.conn)
+	if reader == nil {
+		err = errors.New("NewReader failed")
+		log.Println(err)
+		return
+	}
+	dallor, err := reader.ReadByte()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	if dallor == '$' {
+		log.Println("get $")
+	} else {
+		err = reader.UnreadByte()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		var response *Response
+		response, err = ReadResponse(reader)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		log.Println(response)
+	}
 	return
 }

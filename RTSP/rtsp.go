@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -238,12 +237,12 @@ func (r Response) String() string {
 }
 
 //ReadResponse ...
-func ReadResponse(r io.Reader) (response *Response, err error) {
+func ReadResponse(reader *bufio.Reader) (response *Response, err error) {
 	response = &Response{
 		Header: http.Header{},
 		Body:   make([]byte, 0),
 	}
-	reader := bufio.NewReader(r)
+
 	line, err := readline(reader)
 	if err != nil {
 		log.Println(err)

@@ -14,8 +14,9 @@ smpte=10:07:00-10:07:33:05.01
 smpte-25=10:07:00-10:07:33:05.01
 */
 
-//SMPTE20DropFrameRate  framte rate 107892 / hour ,every minute fast first 2 frame ,except 0,10,20,30,40,50 minute.
-const SMPTE20DropFrameRate = 29.97
+//SMPTE30DropFrameRate  framte rate 107892 / hour ,every minute fast first 2 frame ,except 0,10,20,30,40,50 minute.
+//通过丢帧时间同步
+const SMPTE30DropFrameRate = 29.97
 
 const smptePrefix = "smpte"
 
@@ -80,6 +81,7 @@ func ParseSMPTE(line string) (smpteRange *SmpteRange, err error) {
 	hyphenIndex := strings.Index(line, "-")
 
 	smpteRange = &SmpteRange{}
+	smpteRange.FrameRate = 30
 
 	prefix := "smpte="
 	if hyphenIndex < eqIndex {
