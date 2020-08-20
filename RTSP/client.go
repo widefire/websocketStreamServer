@@ -2,8 +2,10 @@ package rtsp
 
 import (
 	"bufio"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -401,10 +403,34 @@ func (client *Client) readTCPStream() (err error) {
 	dallor, err := reader.ReadByte()
 	if err != nil {
 		log.Println(err)
-		return
+		return err
 	}
 	if dallor == '$' {
 		log.Println("get $")
+		channel, err := reader.ReadByte()
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		log.Println(channel)
+		var packetSize uint16
+		err = binary.Read(reader, binary.BigEndian, &packetSize)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		log.Println(packetSize)
+		if packetSize == 0 {
+			log.Println("packet size is zero")
+		} else {
+			packet := make([]byte, packetSize)
+			_, err = io.ReadFull(reader, packet)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			log.Println("read packet succeed")
+		}
 	} else {
 		err = reader.UnreadByte()
 		if err != nil {
