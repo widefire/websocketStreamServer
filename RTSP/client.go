@@ -16,16 +16,37 @@ import (
 
 //Client RTSP client
 type Client struct {
-	url                *url.URL
-	cseq               int
-	conn               *net.TCPConn
-	userAgent          string
-	methods            map[string]bool
-	sessionDescription *sdp.SessionDescription
-	session            string
-	timeout            int
-	replyTransport     *Transport
-	replyRTPInfo       *RTPInfo
+	url                    *url.URL
+	cseq                   int
+	conn                   *net.TCPConn
+	userAgent              string
+	methods                map[string]bool
+	sessionDescription     *sdp.SessionDescription
+	clientMediaDescription []*ClientMediaDescription
+	session                string
+	timeout                int
+}
+
+//ClientMediaDescription build from sessionDescription for every media level
+type ClientMediaDescription struct {
+	Control          string //from sdp
+	RequestTransport *TransportItem
+	ReplyTransport   *TransportItem
+	RTPInfo          *RTPInfoItem
+	URL              *url.URL
+}
+
+func (desc *ClientMediaDescription) setRTPInfo(info *RTPInfo) {
+	for _, item := range info.Items {
+		itemURL, err := url.Parse(item.StreamURL)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		if itemURL.Path == desc.URL.Path {
+			desc.RTPInfo = item
+		}
+	}
 }
 
 //NewClient create a rtsp client instance
@@ -184,6 +205,32 @@ func (client *Client) SendDescribe(header http.Header) (err error) {
 		return
 	}
 
+	client.clientMediaDescription = make([]*ClientMediaDescription, len(client.sessionDescription.MediaDescriptions))
+	for i, m := range client.sessionDescription.MediaDescriptions {
+		desc := &ClientMediaDescription{}
+		for _, attr := range m.Attribute {
+			switch attr.AttributeName {
+			case "control":
+				if attr.Value != nil {
+					desc.Control = *attr.Value
+				} else {
+					log.Println("control is nil")
+				}
+			default:
+				log.Printf("not handle now : %s ", attr.AttributeName)
+			}
+		}
+		desc.RequestTransport = &TransportItem{}
+		err = desc.RequestTransport.ParseTransportSpec(m.Proto)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		//set unicast
+		desc.RequestTransport.Unicast = true
+		client.clientMediaDescription[i] = desc
+
+	}
 	return
 }
 
@@ -207,57 +254,85 @@ func (client *Client) setupTCP(header http.Header) (err error) {
 		log.Println(err)
 		return
 	}
-	header = client.prepareHeader(header)
-	header.Set("Transport", "RTP/AVP/TCP;interleaved=0-1")
-	request := NewRequest(MethodSETUP, client.url, header, nil)
-	log.Println(request)
-	_, err = client.conn.Write([]byte(request.String()))
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	response, err := client.ReadResponse()
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = client.checkResponse(response)
-	if err != nil {
+	if len(client.clientMediaDescription) == 0 {
+		err = errors.New("no media can setup")
 		log.Println(err)
 		return
 	}
 
-	//decode session
-	sessionandtimeout := response.Header.Get("Session")
-	if len(sessionandtimeout) > 0 {
-		subs := strings.SplitN(sessionandtimeout, ";", 2)
-		client.session = subs[0]
-		if len(subs[1]) > 0 {
-			if strings.HasPrefix(subs[1], "timeout=") {
-				client.timeout, err = strconv.Atoi(strings.TrimPrefix(subs[1], "timeout="))
-				if err != nil {
-					log.Println(err)
-					//ignore
-					err = nil
-					return
+	for i := 0; i < len(client.clientMediaDescription); i++ {
+		header = client.prepareHeader(header)
+		desc := client.clientMediaDescription[i]
+		desc.RequestTransport.TransportProtocol = "RTP"
+		desc.RequestTransport.Profile = "AVP"
+		desc.RequestTransport.LowerTransport = "TCP"
+		desc.RequestTransport.Interleaved = &IntRange{}
+		desc.RequestTransport.Interleaved.From = 2 * i
+		desc.RequestTransport.Interleaved.To = new(int)
+		*desc.RequestTransport.Interleaved.To = 2*i + 1
+		header.Set("Transport", desc.RequestTransport.String())
+		desc.URL, err = url.Parse(client.url.String())
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		desc.URL.Path += "/"
+		desc.URL.Path += desc.Control
+		request := NewRequest(MethodSETUP, desc.URL, header, nil)
+		log.Println(request)
+		_, err = client.conn.Write([]byte(request.String()))
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		var response *Response
+		response, err = client.ReadResponse()
+		if err != nil {
+			log.Println(err)
+		}
+
+		err = client.checkResponse(response)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		//decode session
+		sessionandtimeout := response.Header.Get("Session")
+		if len(sessionandtimeout) > 0 {
+			subs := strings.SplitN(sessionandtimeout, ";", 2)
+			client.session = subs[0]
+			if len(subs[1]) > 0 {
+				if strings.HasPrefix(subs[1], "timeout=") {
+					client.timeout, err = strconv.Atoi(strings.TrimPrefix(subs[1], "timeout="))
+					if err != nil {
+						log.Println(err)
+						//ignore
+						err = nil
+						return
+					}
+				} else {
+					log.Printf("%s invalid timeout \r\n", subs[1])
+
 				}
-			} else {
-				log.Printf("%s invalid timeout \r\n", subs[1])
-
 			}
 		}
-	}
 
-	client.replyTransport, err = ParseTransport(response.Header)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	if client.replyTransport == nil {
-		err = fmt.Errorf("setup response no transport")
-		log.Println(err)
-		return
+		var trans *Transport
+		trans, err = ParseTransport(response.Header)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		if trans == nil || len(trans.Items) == 0 {
+			err = fmt.Errorf("setup response no transport")
+			log.Println(err)
+			return
+		}
+		if len(trans.Items) > 1 {
+			log.Println("a compound transport,to do")
+		}
+		desc.ReplyTransport = trans.Items[0]
 	}
 
 	return
@@ -272,6 +347,7 @@ func (client *Client) SendPlay(header http.Header) (err error) {
 		return
 	}
 	header = client.prepareHeader(header)
+	header.Set("Session", client.session)
 	request := NewRequest(MethodPLAY, client.url, header, nil)
 	log.Println(request)
 	_, err = client.conn.Write([]byte(request.String()))
@@ -290,14 +366,25 @@ func (client *Client) SendPlay(header http.Header) (err error) {
 		return
 	}
 
-	client.replyRTPInfo, err = ParseRTPInfo(response.Header)
+	rtpInfo, err := ParseRTPInfo(response.Header)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	if client.replyRTPInfo == nil {
+	if rtpInfo == nil {
 		err = fmt.Errorf("no RTPInfo in Play response")
+		log.Println(err)
 		return
+	}
+
+	if len(rtpInfo.Items) != len(client.clientMediaDescription) {
+		err = fmt.Errorf("%d %d rtp info count error", len(rtpInfo.Items), len(client.clientMediaDescription))
+		log.Println(err)
+		return
+	}
+
+	for _, desc := range client.clientMediaDescription {
+		desc.setRTPInfo(rtpInfo)
 	}
 
 	return

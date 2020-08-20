@@ -15,6 +15,14 @@ type TransportSpec struct {
 	LowerTransport    string // "TCP" | "UDP"
 }
 
+func (trans *TransportSpec) String() string {
+	ret := trans.TransportProtocol + "/" + trans.Profile
+	if len(trans.LowerTransport) > 0 && trans.LowerTransport != "UDP" {
+		ret += ("/" + trans.LowerTransport)
+	}
+	return ret
+}
+
 //ParseTransportSpec ...
 func (trans *TransportSpec) ParseTransportSpec(str string) (err error) {
 	sub := strings.SplitN(str, "/", 3)
@@ -37,6 +45,15 @@ func (trans *TransportSpec) ParseTransportSpec(str string) (err error) {
 type IntRange struct {
 	From int
 	To   *int
+}
+
+func (ir *IntRange) String() string {
+	ret := strconv.Itoa(ir.From)
+	if ir.To != nil {
+		ret += "-"
+		ret += strconv.Itoa(*ir.To)
+	}
+	return ret
 }
 
 func createIntRange(str string) (ir *IntRange, err error) {
@@ -73,6 +90,57 @@ type TransportItem struct {
 	ServerPort  *IntRange //"server_port"
 	SSRC        string    //"ssrc"
 	Mode        string    //"mode"
+}
+
+func (item *TransportItem) String() string {
+	ret := item.TransportSpec.String()
+	if item.Unicast {
+		ret += ";"
+		ret += "unicast"
+	} else {
+		ret += ";"
+		ret += "multicast"
+	}
+	if len(item.Destination) > 0 {
+		ret += ";"
+		ret += "destination="
+		ret += item.Destination
+	}
+	if item.Interleaved != nil {
+		ret += ";interleaved="
+		ret += item.Interleaved.String()
+	}
+	if item.Append {
+		ret += ";append"
+	}
+	if item.TTL > 0 {
+		ret += ";" + strconv.Itoa(item.TTL)
+	}
+	if item.Layers > 0 {
+		ret += ";" + strconv.Itoa(item.Layers)
+	}
+	if item.Port != nil {
+		ret += ";port="
+		ret += item.Port.String()
+	}
+	if item.ClientPort != nil {
+		ret += ";client_port="
+		ret += item.ClientPort.String()
+	}
+	if item.ServerPort != nil {
+		ret += ";server_port="
+		ret += item.ServerPort.String()
+	}
+	if len(item.SSRC) > 0 {
+		ret += ";"
+		ret += item.SSRC
+	}
+	if len(item.Mode) > 0 {
+		ret += ";"
+		ret += item.Mode
+	}
+
+	return ret
 }
 
 //Transport ...
