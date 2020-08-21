@@ -56,6 +56,18 @@ func (ir *IntRange) String() string {
 	return ret
 }
 
+func (ir *IntRange) isInRange(i byte) bool {
+	if ir.From == int(i) {
+		return true
+	}
+	if ir.To != nil {
+		if int(i) >= ir.From && int(i) <= *ir.To {
+			return true
+		}
+	}
+	return false
+}
+
 func createIntRange(str string) (ir *IntRange, err error) {
 	sub := strings.SplitN(str, "-", 2)
 	ir = &IntRange{}

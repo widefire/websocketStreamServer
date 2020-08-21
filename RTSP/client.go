@@ -18,37 +18,15 @@ import (
 
 //Client RTSP client
 type Client struct {
-	url                    *url.URL
-	cseq                   int
-	conn                   *net.TCPConn
-	userAgent              string
-	methods                map[string]bool
-	sessionDescription     *sdp.SessionDescription
-	clientMediaDescription []*ClientMediaDescription
-	session                string
-	timeout                int
-}
-
-//ClientMediaDescription build from sessionDescription for every media level
-type ClientMediaDescription struct {
-	Control          string //from sdp
-	RequestTransport *TransportItem
-	ReplyTransport   *TransportItem
-	RTPInfo          *RTPInfoItem
-	URL              *url.URL
-}
-
-func (desc *ClientMediaDescription) setRTPInfo(info *RTPInfo) {
-	for _, item := range info.Items {
-		itemURL, err := url.Parse(item.StreamURL)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		if itemURL.Path == desc.URL.Path {
-			desc.RTPInfo = item
-		}
-	}
+	url                *url.URL
+	cseq               int
+	conn               *net.TCPConn
+	userAgent          string
+	methods            map[string]bool
+	sessionDescription *sdp.SessionDescription
+	mediaSession       []*ClientMediaSession
+	session            string
+	timeout            int
 }
 
 //NewClient create a rtsp client instance
@@ -207,9 +185,9 @@ func (client *Client) SendDescribe(header http.Header) (err error) {
 		return
 	}
 
-	client.clientMediaDescription = make([]*ClientMediaDescription, len(client.sessionDescription.MediaDescriptions))
+	client.mediaSession = make([]*ClientMediaSession, len(client.sessionDescription.MediaDescriptions))
 	for i, m := range client.sessionDescription.MediaDescriptions {
-		desc := &ClientMediaDescription{}
+		desc := &ClientMediaSession{}
 		for _, attr := range m.Attribute {
 			switch attr.AttributeName {
 			case "control":
@@ -230,7 +208,7 @@ func (client *Client) SendDescribe(header http.Header) (err error) {
 		}
 		//set unicast
 		desc.RequestTransport.Unicast = true
-		client.clientMediaDescription[i] = desc
+		client.mediaSession[i] = desc
 
 	}
 	return
@@ -256,15 +234,15 @@ func (client *Client) setupTCP(header http.Header) (err error) {
 		log.Println(err)
 		return
 	}
-	if len(client.clientMediaDescription) == 0 {
+	if len(client.mediaSession) == 0 {
 		err = errors.New("no media can setup")
 		log.Println(err)
 		return
 	}
 
-	for i := 0; i < len(client.clientMediaDescription); i++ {
+	for i := 0; i < len(client.mediaSession); i++ {
 		header = client.prepareHeader(header)
-		desc := client.clientMediaDescription[i]
+		desc := client.mediaSession[i]
 		desc.RequestTransport.TransportProtocol = "RTP"
 		desc.RequestTransport.Profile = "AVP"
 		desc.RequestTransport.LowerTransport = "TCP"
@@ -379,13 +357,13 @@ func (client *Client) SendPlay(header http.Header) (err error) {
 		return
 	}
 
-	if len(rtpInfo.Items) != len(client.clientMediaDescription) {
-		err = fmt.Errorf("%d %d rtp info count error", len(rtpInfo.Items), len(client.clientMediaDescription))
+	if len(rtpInfo.Items) != len(client.mediaSession) {
+		err = fmt.Errorf("%d %d rtp info count error", len(rtpInfo.Items), len(client.mediaSession))
 		log.Println(err)
 		return
 	}
 
-	for _, desc := range client.clientMediaDescription {
+	for _, desc := range client.mediaSession {
 		desc.setRTPInfo(rtpInfo)
 	}
 
@@ -430,6 +408,19 @@ func (client *Client) readTCPStream() (err error) {
 				return err
 			}
 			log.Println("read packet succeed")
+			handled := false
+			for _, mc := range client.mediaSession {
+				if mc.canHandle(channel) {
+					err = mc.handleByChannelAndData(channel, packet)
+					if err != nil {
+						log.Println(err)
+						return err
+					}
+				}
+			}
+			if handled == false {
+				log.Printf("%d not handle", channel)
+			}
 		}
 	} else {
 		err = reader.UnreadByte()
