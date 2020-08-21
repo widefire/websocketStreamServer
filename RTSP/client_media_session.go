@@ -30,6 +30,7 @@ func (desc *ClientMediaSession) canHandle(channel byte) bool {
 	return desc.ReplyTransport.Interleaved.isInRange(channel)
 }
 
+//客户端通过发送getparam保活
 func (desc *ClientMediaSession) handleByChannelAndData(channel byte, packet []byte) (err error) {
 	if !desc.canHandle(channel) {
 		err = errors.New("can't handle")
