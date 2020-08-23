@@ -13,9 +13,9 @@ type ReceptionReport struct {
 	FractionLost                  uint8
 	CumulativeLost                uint32
 	ExtendedHighestSequenceNumber uint32
-	Jitter                        uint32
+	Jitter                        uint32 //todo,转换时间单位，
 	LSR                           uint32
-	DLSR                          uint32
+	DLSR                          uint32 //65536分支1秒
 }
 
 //Encode ReceptionReport

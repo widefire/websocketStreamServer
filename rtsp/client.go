@@ -21,6 +21,7 @@ type Client struct {
 	url                *url.URL
 	cseq               int
 	conn               *net.TCPConn
+	bufReader          *bufio.Reader
 	userAgent          string
 	methods            map[string]bool
 	sessionDescription *sdp.SessionDescription
@@ -61,6 +62,8 @@ func (client *Client) Dial(rawURL string) (err error) {
 		log.Println(err)
 		return
 	}
+	client.bufReader = bufio.NewReader(client.conn)
+
 	return
 }
 
@@ -102,7 +105,7 @@ func (client *Client) checkResponse(response *Response) (err error) {
 
 //ReadResponse ...
 func (client *Client) ReadResponse() (response *Response, err error) {
-	response, err = ReadResponse(bufio.NewReader(client.conn))
+	response, err = ReadResponse(client.bufReader)
 	if err != nil {
 		log.Println(err)
 		return
@@ -370,71 +373,87 @@ func (client *Client) SendPlay(header http.Header) (err error) {
 	return
 }
 
-//readTCPStream  rtsp rtp rtcp all in tcp
-func (client *Client) readTCPStream() (err error) {
-	reader := bufio.NewReader(client.conn)
-	if reader == nil {
-		err = errors.New("NewReader failed")
-		log.Println(err)
-		return
-	}
-	dallor, err := reader.ReadByte()
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	if dallor == '$' {
-		log.Println("get $")
-		channel, err := reader.ReadByte()
+func (client *Client) getStreamsFromTCP() {
+	ch := make(chan []byte, 100)
+	go client.writeTCPResponses(ch)
+	for {
+		dallor, err := client.bufReader.Peek(1)
 		if err != nil {
 			log.Println(err)
-			return err
+			return
 		}
-		log.Println(channel)
-		var packetSize uint16
-		err = binary.Read(reader, binary.BigEndian, &packetSize)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-		log.Println(packetSize)
-		if packetSize == 0 {
-			log.Println("packet size is zero")
-		} else {
-			packet := make([]byte, packetSize)
-			_, err = io.ReadFull(reader, packet)
+		if dallor[0] == '$' {
+			mustDallor, _ := client.bufReader.ReadByte()
+			if mustDallor != dallor[0] {
+				log.Fatal("buf reader useage error")
+			}
+			channel, err := client.bufReader.ReadByte()
 			if err != nil {
 				log.Println(err)
-				return err
+				return
 			}
-			log.Println("read packet succeed")
-			handled := false
-			for _, mc := range client.mediaSession {
-				if mc.canHandle(channel) {
-					err = mc.handleByChannelAndData(channel, packet)
-					if err != nil {
-						log.Println(err)
-						return err
+			var packetSize uint16
+			err = binary.Read(client.bufReader, binary.BigEndian, &packetSize)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			if packetSize == 0 {
+				log.Println("packet size is zero")
+			} else {
+				packet := make([]byte, packetSize)
+				_, err = io.ReadFull(client.bufReader, packet)
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				handled := false
+				for _, mc := range client.mediaSession {
+					if mc.canHandle(channel) {
+						var reply []byte
+						reply, err = mc.handleByChannelAndData(channel, packet)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						handled = true
+						if len(reply) > 0 {
+							ch <- reply
+						}
+						break
 					}
 				}
+				if handled == false {
+					log.Printf("%d not handle", channel)
+				}
 			}
-			if handled == false {
-				log.Printf("%d not handle", channel)
+		} else {
+			var response *Response
+			response, err = ReadResponse(client.bufReader)
+			if err != nil {
+				log.Println(err)
+				return
 			}
+			log.Println(response)
 		}
-	} else {
-		err = reader.UnreadByte()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		var response *Response
-		response, err = ReadResponse(reader)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		log.Println(response)
 	}
+
 	return
+}
+
+func (client *Client) writeTCPResponses(ch chan []byte) {
+	for {
+		data, ok := <-ch
+		if !ok {
+			break
+		}
+		if len(data) > 0 {
+			_, err := client.conn.Write(data)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			client.conn.Close()
+		}
+	}
 }

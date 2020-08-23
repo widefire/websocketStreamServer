@@ -13,6 +13,7 @@ type ReceiverReport struct {
 	SSRC                      uint32
 	Reports                   []*ReceptionReport
 	ProfileSpecificExtensions []byte
+	LastSeq                   uint32 //extended last seq. no. received
 }
 
 //Encode ReceiverReport
